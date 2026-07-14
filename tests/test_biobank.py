@@ -1,9 +1,10 @@
 """End-to-end tests for the biobank system.
 
-Covers the database layer directly and the HTTP API against a live server
-bound to an ephemeral port with a temporary database.
+Covers the database layer, the importer, and the HTTP API (auth + RBAC)
+against a live server bound to an ephemeral port with a temporary database.
 """
 
+import io
 import json
 import os
 import sys
@@ -11,14 +12,21 @@ import tempfile
 import threading
 import unittest
 import urllib.request
+import zipfile
 from urllib.error import HTTPError
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from biobank.db import Database
-from biobank.server import make_server
+from biobank.db import Database, hash_password
+from biobank.importer import normalize_date, parse_csv, parse_xlsx, rows_to_records
+from biobank.server import make_server, seed_users
+
+SEED_PW = "Test@123"
 
 
+# ----------------------------------------------------------------------------
+# Database layer
+# ----------------------------------------------------------------------------
 class DatabaseTests(unittest.TestCase):
     def setUp(self):
         self.db = Database(":memory:")
@@ -26,60 +34,115 @@ class DatabaseTests(unittest.TestCase):
     def tearDown(self):
         self.db.close()
 
-    def test_create_and_get_donor(self):
-        d = self.db.create_donor("D-001", "Alice Zahra", 1990, "F")
-        self.assertEqual(d["code"], "D-001")
-        self.assertEqual(self.db.get_donor(d["id"])["full_name"], "Alice Zahra")
+    def test_password_hashing_roundtrip(self):
+        salt, h = hash_password("secret")
+        self.assertEqual(hash_password("secret", salt)[1], h)
+        self.assertNotEqual(hash_password("other", salt)[1], h)
 
-    def test_duplicate_code_rejected(self):
-        self.db.create_donor("D-001", "Alice")
-        with self.assertRaises(Exception):
-            self.db.create_donor("D-001", "Someone Else")
+    def test_user_and_credentials(self):
+        self.db.create_user("admin1", "Admin One", "admin", "pw12345")
+        self.assertIsNone(self.db.verify_credentials("admin1", "wrong"))
+        acc = self.db.verify_credentials("admin1", "pw12345")
+        self.assertEqual(acc["role"], "admin")
+        self.assertIsNone(self.db.verify_credentials("ghost", "pw12345"))
 
-    def test_donor_validation(self):
+    def test_sessions(self):
+        u = self.db.create_user("user1", "User One", "staff", "pw12345")
+        token = self.db.create_session(u["id"])
+        self.assertEqual(self.db.get_session_user(token)["username"], "user1")
+        self.db.delete_session(token)
+        self.assertIsNone(self.db.get_session_user(token))
+        self.assertIsNone(self.db.get_session_user(None))
+
+    def test_sample_required_fields(self):
         with self.assertRaises(ValueError):
-            self.db.create_donor("", "No Code")
-        with self.assertRaises(ValueError):
-            self.db.create_donor("D-9", "Bad Sex", sex="X")
+            self.db.create_sample({"animal_type": "Cattle", "sample_type": "blood",
+                                   "department": "virology"})  # missing area
+        rec = self.db.create_sample({"area": "Riyadh", "animal_type": "Cattle",
+                                     "sample_type": "blood", "department": "virology",
+                                     "quantity_ml": "5"}, created_by="admin1")
+        self.assertEqual(rec["area"], "Riyadh")
+        self.assertEqual(rec["quantity_ml"], 5.0)
+        self.assertEqual(rec["created_by"], "admin1")
 
-    def test_sample_lifecycle(self):
-        d = self.db.create_donor("D-002", "Bob")
-        s = self.db.create_sample(d["id"], "blood", volume_ml=5.0, storage_temp=-80,
-                                  location="Freezer-A")
-        self.assertEqual(s["status"], "stored")
-        updated = self.db.update_sample_status(s["id"], "in_use")
-        self.assertEqual(updated["status"], "in_use")
-        with self.assertRaises(ValueError):
-            self.db.update_sample_status(s["id"], "bogus")
-
-    def test_sample_requires_existing_donor(self):
-        with self.assertRaises(ValueError):
-            self.db.create_sample(999, "blood")
-
-    def test_cascade_delete(self):
-        d = self.db.create_donor("D-003", "Carol")
-        self.db.create_sample(d["id"], "DNA")
-        self.db.delete_donor(d["id"])
-        self.assertEqual(self.db.list_samples(donor_id=d["id"]), [])
-
-    def test_filter_and_stats(self):
-        d = self.db.create_donor("D-004", "Dana")
-        self.db.create_sample(d["id"], "blood")
-        s2 = self.db.create_sample(d["id"], "plasma")
-        self.db.update_sample_status(s2["id"], "depleted")
-        self.assertEqual(len(self.db.list_samples(status="stored")), 1)
+    def test_list_filter_and_stats(self):
+        base = {"animal_type": "Sheep", "sample_type": "blood"}
+        self.db.create_sample({**base, "area": "Jeddah", "department": "virology"})
+        self.db.create_sample({**base, "area": "Abha", "department": "Bacterial", "disease": "Brucellosis"})
+        self.assertEqual(len(self.db.list_samples(department="virology")), 1)
+        self.assertEqual(len(self.db.list_samples(search="brucel")), 1)
         stats = self.db.stats()
-        self.assertEqual(stats["donors"], 1)
-        self.assertEqual(stats["samples"], 2)
-        self.assertEqual(stats["samples_by_status"]["depleted"], 1)
+        self.assertEqual(stats["total"], 2)
+        self.assertEqual(stats["by_department"]["virology"], 1)
+
+    def test_delete_sample(self):
+        r = self.db.create_sample({"area": "Hail", "animal_type": "Camel",
+                                   "sample_type": "tissue", "department": "Parasitic"})
+        self.assertTrue(self.db.delete_sample(r["id"]))
+        self.assertFalse(self.db.delete_sample(r["id"]))
 
 
+# ----------------------------------------------------------------------------
+# Importer
+# ----------------------------------------------------------------------------
+class ImporterTests(unittest.TestCase):
+    def test_normalize_date_serial_and_string(self):
+        self.assertEqual(normalize_date("45707"), "2025-02-19")
+        self.assertEqual(normalize_date("2025-03-01"), "2025-03-01")
+        self.assertEqual(normalize_date(""), "")
+
+    def test_parse_csv_and_map(self):
+        text = ("Lab number,area,animal type,Sample type,department,barcode number\n"
+                "264,Riyadh,Cattle,blood,virology,BC-1\n"
+                ",,,,,\n")
+        rows = parse_csv(text)
+        records, hdr = rows_to_records(rows)
+        self.assertEqual(hdr, 0)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["area"], "Riyadh")
+        self.assertEqual(records[0]["barcode"], "BC-1")
+
+    def test_header_detection_with_title_rows(self):
+        rows = [
+            ["Biobank Data Form", "", ""],
+            ["", "", ""],
+            ["area", "animal type", "department"],
+            ["Riyadh", "Cattle", "virology"],
+        ]
+        records, hdr = rows_to_records(rows)
+        self.assertEqual(hdr, 2)
+        self.assertEqual(records[0]["animal_type"], "Cattle")
+
+    def test_parse_xlsx(self):
+        # Build a minimal .xlsx in memory (inline strings, no sharedStrings).
+        sheet = ('<?xml version="1.0"?>'
+                 '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                 '<sheetData>'
+                 '<row r="1"><c r="A1" t="inlineStr"><is><t>area</t></is></c>'
+                 '<c r="B1" t="inlineStr"><is><t>animal type</t></is></c>'
+                 '<c r="C1" t="inlineStr"><is><t>department</t></is></c></row>'
+                 '<row r="2"><c r="A2" t="inlineStr"><is><t>Makkah</t></is></c>'
+                 '<c r="B2" t="inlineStr"><is><t>Horse</t></is></c>'
+                 '<c r="C2" t="inlineStr"><is><t>Bacterial</t></is></c></row>'
+                 '</sheetData></worksheet>')
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("xl/worksheets/sheet1.xml", sheet)
+        rows = parse_xlsx(buf.getvalue())
+        records, _ = rows_to_records(rows)
+        self.assertEqual(records[0]["area"], "Makkah")
+        self.assertEqual(records[0]["department"], "Bacterial")
+
+
+# ----------------------------------------------------------------------------
+# HTTP API + access control
+# ----------------------------------------------------------------------------
 class ApiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
         cls.tmp.close()
-        cls.server = make_server(host="127.0.0.1", port=0, db_path=cls.tmp.name)
+        cls.server = make_server(host="127.0.0.1", port=0, db_path=cls.tmp.name, seed_password=SEED_PW)
         cls.port = cls.server.server_address[1]
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
@@ -91,58 +154,128 @@ class ApiTests(unittest.TestCase):
         cls.server.biobank_db.close()
         os.unlink(cls.tmp.name)
 
-    def _req(self, method, path, body=None):
+    def _req(self, method, path, body=None, token=None, raw=None):
         url = f"http://127.0.0.1:{self.port}{path}"
-        data = json.dumps(body).encode() if body is not None else None
+        if raw is not None:
+            data = raw
+        elif body is not None:
+            data = json.dumps(body).encode()
+        else:
+            data = None
         req = urllib.request.Request(url, data=data, method=method)
-        if data:
+        if body is not None:
             req.add_header("Content-Type", "application/json")
+        if token:
+            req.add_header("Cookie", f"bb_session={token}")
         try:
             with urllib.request.urlopen(req) as resp:
-                return resp.status, json.loads(resp.read())
+                cookie = resp.headers.get("Set-Cookie", "")
+                return resp.status, json.loads(resp.read()), cookie
         except HTTPError as e:
-            return e.code, json.loads(e.read())
+            return e.code, json.loads(e.read()), e.headers.get("Set-Cookie", "")
 
-    def test_health(self):
-        status, body = self._req("GET", "/api/health")
+    def _login(self, username, password=SEED_PW):
+        status, body, cookie = self._req("POST", "/api/login",
+                                         {"username": username, "password": password})
+        self.assertEqual(status, 200, body)
+        token = cookie.split("bb_session=")[1].split(";")[0]
+        return token
+
+    def test_health_is_public(self):
+        status, body, _ = self._req("GET", "/api/health")
         self.assertEqual(status, 200)
         self.assertEqual(body["status"], "ok")
 
-    def test_full_flow(self):
-        status, donor = self._req("POST", "/api/donors",
-                                  {"code": "API-1", "full_name": "Eve", "sex": "F"})
-        self.assertEqual(status, 201)
-        did = donor["id"]
+    def test_requires_auth(self):
+        status, body, _ = self._req("GET", "/api/samples")
+        self.assertEqual(status, 401)
 
-        status, sample = self._req("POST", "/api/samples",
-                                   {"donor_id": did, "sample_type": "serum", "volume_ml": 2.5})
-        self.assertEqual(status, 201)
-        sid = sample["id"]
+    def test_bad_login(self):
+        status, body, _ = self._req("POST", "/api/login",
+                                    {"username": "admin1", "password": "nope"})
+        self.assertEqual(status, 401)
 
-        status, body = self._req("PATCH", f"/api/samples/{sid}", {"status": "in_use"})
+    def test_admin_full_flow(self):
+        token = self._login("admin1")
+        status, me, _ = self._req("GET", "/api/me", token=token)
+        self.assertEqual(me["user"]["role"], "admin")
+
+        status, rec, _ = self._req("POST", "/api/samples", {
+            "area": "Riyadh", "animal_type": "Cattle", "sample_type": "blood",
+            "department": "virology", "barcode": "BC-9", "freezer_no": "F-1",
+        }, token=token)
+        self.assertEqual(status, 201, rec)
+        self.assertEqual(rec["barcode"], "BC-9")           # admin CAN set restricted
+        self.assertEqual(rec["freezer_no"], "F-1")
+
+        status, out, _ = self._req("DELETE", f"/api/samples/{rec['id']}", token=token)
         self.assertEqual(status, 200)
-        self.assertEqual(body["status"], "in_use")
+        self.assertTrue(out["deleted"])
 
-        status, body = self._req("GET", f"/api/samples?donor_id={did}")
-        self.assertEqual(len(body["samples"]), 1)
+    def test_staff_cannot_set_restricted_fields(self):
+        token = self._login("user1")
+        status, rec, _ = self._req("POST", "/api/samples", {
+            "area": "Jeddah", "animal_type": "Sheep", "sample_type": "Serum",
+            "department": "Bacterial", "barcode": "SHOULD-NOT-STICK", "freezer_no": "F-9",
+            "shelf_no": "R-9", "plate_no": "P-9",
+        }, token=token)
+        self.assertEqual(status, 201, rec)
+        self.assertIsNone(rec["barcode"])                  # stripped server-side
+        self.assertIsNone(rec["freezer_no"])
+        self.assertIsNone(rec["shelf_no"])
+        self.assertIsNone(rec["plate_no"])
+        self.assertEqual(rec["area"], "Jeddah")            # allowed field kept
 
-        status, _ = self._req("DELETE", f"/api/donors/{did}")
-        self.assertEqual(status, 200)
+    def test_staff_cannot_delete_or_import_or_list_users(self):
+        admin = self._login("admin1")
+        _, rec, _ = self._req("POST", "/api/samples", {
+            "area": "Abha", "animal_type": "Camel", "sample_type": "tissue",
+            "department": "Parasitic"}, token=admin)
+        staff = self._login("user2")
+        status, _, _ = self._req("DELETE", f"/api/samples/{rec['id']}", token=staff)
+        self.assertEqual(status, 403)
+        status, _, _ = self._req("POST", "/api/import?filename=x.csv",
+                                 raw=b"area\nRiyadh", token=staff)
+        self.assertEqual(status, 403)
+        status, _, _ = self._req("GET", "/api/users", token=staff)
+        self.assertEqual(status, 403)
 
-    def test_bad_request(self):
-        status, body = self._req("POST", "/api/donors", {"full_name": "No Code"})
-        self.assertEqual(status, 400)
-        self.assertIn("error", body)
+    def test_admin_import_csv(self):
+        token = self._login("admin2")
+        csv_bytes = ("area,animal type,Sample type,department,barcode number\n"
+                     "Tabuk,Falcon,swabs,virology,BC-777\n").encode()
+        status, res, _ = self._req("POST", "/api/import?filename=data.csv",
+                                   raw=csv_bytes, token=token)
+        self.assertEqual(status, 200, res)
+        self.assertEqual(res["added"], 1)
+        status, listing, _ = self._req("GET", "/api/samples?search=BC-777", token=token)
+        self.assertEqual(len(listing["samples"]), 1)
 
-    def test_not_found(self):
-        status, body = self._req("GET", "/api/donors/99999")
-        self.assertEqual(status, 404)
+    def test_logout_invalidates_session(self):
+        token = self._login("user3")
+        self._req("POST", "/api/logout", token=token)
+        status, _, _ = self._req("GET", "/api/me", token=token)
+        self.assertEqual(status, 401)
 
-    def test_index_served(self):
+    def test_index_and_options(self):
         url = f"http://127.0.0.1:{self.port}/"
         with urllib.request.urlopen(url) as resp:
             html = resp.read().decode()
         self.assertIn("Biobank", html)
+        token = self._login("admin1")
+        status, opts, _ = self._req("GET", "/api/options", token=token)
+        self.assertIn("area", opts["options"])
+        self.assertIn("barcode", opts["restricted"])
+
+
+class SeedTests(unittest.TestCase):
+    def test_seed_only_once(self):
+        db = Database(":memory:")
+        self.assertTrue(seed_users(db, "pw"))
+        self.assertEqual(db.count_users(), 6)
+        self.assertFalse(seed_users(db, "pw"))   # idempotent
+        self.assertEqual(db.count_users(), 6)
+        db.close()
 
 
 if __name__ == "__main__":
