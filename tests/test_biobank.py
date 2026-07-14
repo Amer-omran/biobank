@@ -257,6 +257,39 @@ class ApiTests(unittest.TestCase):
         status, _, _ = self._req("GET", "/api/me", token=token)
         self.assertEqual(status, 401)
 
+    def test_admin_user_management(self):
+        token = self._login("admin1")
+        # create a new staff user
+        status, u, _ = self._req("POST", "/api/users", {
+            "username": "user5", "name": "Lab User 5", "role": "staff", "password": "pw12345",
+        }, token=token)
+        self.assertEqual(status, 201, u)
+        self.assertEqual(u["role"], "staff")
+        # duplicate username rejected
+        status, err, _ = self._req("POST", "/api/users", {
+            "username": "user5", "name": "Dup", "role": "staff", "password": "pw12345",
+        }, token=token)
+        self.assertEqual(status, 400)
+        # the new user can sign in
+        self.assertTrue(self._login("user5", "pw12345"))
+        # short password rejected
+        status, _, _ = self._req("POST", "/api/users", {
+            "username": "u6", "name": "N", "role": "staff", "password": "123"}, token=token)
+        self.assertEqual(status, 400)
+        # delete the new user
+        status, out, _ = self._req("DELETE", f"/api/users/{u['id']}", token=token)
+        self.assertEqual(status, 200)
+        self.assertTrue(out["deleted"])
+
+    def test_cannot_delete_self_or_last_admin(self):
+        token = self._login("admin1")
+        _, me, _ = self._req("GET", "/api/me", token=token)
+        users = self._req("GET", "/api/users", token=token)[1]["users"]
+        admin1_id = next(u["id"] for u in users if u["username"] == "admin1")
+        status, err, _ = self._req("DELETE", f"/api/users/{admin1_id}", token=token)
+        self.assertEqual(status, 400)
+        self.assertIn("own account", err["error"])
+
     def test_index_and_options(self):
         url = f"http://127.0.0.1:{self.port}/"
         with urllib.request.urlopen(url) as resp:

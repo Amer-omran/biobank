@@ -129,7 +129,36 @@ async function enterApp() {
   const { options } = await api("/api/options");
   fillDatalists(options);
   await refresh();
+  if (me && me.role === "admin") await loadUsers();
 }
+
+// ---- user management (admin only) -----------------------------------------
+async function loadUsers() {
+  const { users } = await api("/api/users");
+  $("#user-rows").innerHTML = users.map(u => `<tr>
+    <td class="num">${u.id}</td>
+    <td class="key">${esc(u.username)}</td>
+    <td>${esc(u.name)}</td>
+    <td><span class="role-badge ${u.role}">${esc(u.role)}</span></td>
+    <td class="num">${u.created_at ? esc(u.created_at.slice(0, 10)) : "—"}</td>
+    <td style="text-align:right">${
+      me && u.username === me.username ? '<span class="muted" style="font-size:11px">you</span>'
+        : `<button class="x" data-del-user="${u.id}" title="Delete user">✕</button>`}</td>
+  </tr>`).join("");
+}
+$("#user-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const err = $("#user-err"); err.textContent = "";
+  const body = {};
+  new FormData(e.target).forEach((v, k) => { body[k] = String(v); });
+  try { await api("/api/users", { method: "POST", body }); e.target.reset(); await loadUsers(); }
+  catch (ex) { err.textContent = ex.message; }
+});
+$("#user-rows").addEventListener("click", async e => {
+  const b = e.target.closest("[data-del-user]"); if (!b) return;
+  try { await api("/api/users/" + b.dataset.delUser, { method: "DELETE" }); await loadUsers(); }
+  catch (ex) { $("#user-err").textContent = ex.message; }
+});
 
 // ---- events ----------------------------------------------------------------
 $("#login-form").addEventListener("submit", async e => {

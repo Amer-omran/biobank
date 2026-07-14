@@ -202,6 +202,33 @@ class BiobankHandler(BaseHTTPRequestHandler):
     def h_users(self, match: "re.Match[str]", user: Any) -> None:
         self._send_json(200, {"users": self.db.list_users()})
 
+    def h_create_user(self, match: "re.Match[str]", user: Any) -> None:
+        body = self._read_json()
+        username = str(body.get("username", "")).strip()
+        name = str(body.get("name", "")).strip()
+        role = str(body.get("role", "")).strip()
+        password = str(body.get("password", ""))
+        if not username:
+            raise ValueError("username is required")
+        if not name:
+            raise ValueError("name is required")
+        if role not in ("admin", "staff"):
+            raise ValueError("role must be 'admin' or 'staff'")
+        if len(password) < 6:
+            raise ValueError("password must be at least 6 characters")
+        self._send_json(201, self.db.create_user(username, name, role, password))
+
+    def h_delete_user(self, match: "re.Match[str]", user: Any) -> None:
+        target = self.db.get_user(int(match.group("id")))
+        if target is None:
+            self._send_json(404, {"error": "user not found"})
+            return
+        if target["id"] == user["id"]:
+            raise ValueError("you cannot delete your own account")
+        if target["role"] == "admin" and self.db.count_admins() <= 1:
+            raise ValueError("cannot delete the last administrator")
+        self._send_json(200, {"deleted": self.db.delete_user(target["id"])})
+
     # ----- samples --------------------------------------------------------
 
     def h_list_samples(self, match: "re.Match[str]", user: Any) -> None:
@@ -251,6 +278,8 @@ def _build_routes() -> list[Route]:
         ("GET", p(r"/api/me"), "h_me", False),
         ("GET", p(r"/api/options"), "h_options", False),
         ("GET", p(r"/api/users"), "h_users", True),
+        ("POST", p(r"/api/users"), "h_create_user", True),
+        ("DELETE", p(r"/api/users/(?P<id>\d+)"), "h_delete_user", True),
         ("GET", p(r"/api/samples"), "h_list_samples", False),
         ("POST", p(r"/api/samples"), "h_create_sample", False),
         ("DELETE", p(r"/api/samples/(?P<id>\d+)"), "h_delete_sample", True),

@@ -115,11 +115,14 @@ class Database:
             raise ValueError("role must be 'admin' or 'staff'")
         salt, pw_hash = hash_password(password)
         with self._lock:
-            cur = self.conn.execute(
-                "INSERT INTO users (username, name, role, salt, pw_hash, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (username, name, role, salt, pw_hash, _iso(_now())),
-            )
+            try:
+                cur = self.conn.execute(
+                    "INSERT INTO users (username, name, role, salt, pw_hash, created_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (username, name, role, salt, pw_hash, _iso(_now())),
+                )
+            except sqlite3.IntegrityError:
+                raise ValueError(f"username '{username}' already exists")
             self.conn.commit()
             return self._user_public(cur.lastrowid)  # type: ignore[arg-type]
 
@@ -128,6 +131,22 @@ class Database:
             "SELECT id, username, name, role, created_at FROM users WHERE id = ?", (user_id,)
         ).fetchone()
         return dict(row) if row else {}
+
+    def get_user(self, user_id: int) -> Optional[dict[str, Any]]:
+        with self._lock:
+            return self._user_public(user_id) or None
+
+    def count_admins(self) -> int:
+        with self._lock:
+            return self.conn.execute(
+                "SELECT COUNT(*) AS c FROM users WHERE role = 'admin'"
+            ).fetchone()["c"]
+
+    def delete_user(self, user_id: int) -> bool:
+        with self._lock:
+            cur = self.conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            self.conn.commit()
+            return cur.rowcount > 0
 
     def verify_credentials(self, username: str, password: str) -> Optional[dict[str, Any]]:
         with self._lock:

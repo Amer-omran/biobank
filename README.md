@@ -14,7 +14,8 @@ so it runs on any stock Python 3.9+ install.
 - **Ready-made option lists** for area, animal type, sample type, disease, strain
   and department — pick a value or type a new one.
 - **Accounts & roles**, enforced on the server:
-  - **admin** (`admin1`, `admin2`) — full access: all fields, delete, import, users.
+  - **admin** (`admin1`, `admin2`) — full access: all fields, delete, import, and
+    user management (add/remove accounts, assign roles).
   - **staff** (`user1`–`user4`) — view everything and create records, **except** the
     barcode, freezer, shelf and plate fields (stripped server-side on write); no
     delete, no import.
@@ -65,6 +66,8 @@ All `/api` routes except `/health` and `/login` require the session cookie set b
 | `DELETE` | `/api/samples/{id}`   | admin  | Delete a sample.                         |
 | `POST`   | `/api/import`         | admin  | Import `.xlsx`/`.csv` (`?filename=`).    |
 | `GET`    | `/api/users`          | admin  | List user accounts.                      |
+| `POST`   | `/api/users`          | admin  | Create an account (username, name, role, password). |
+| `DELETE` | `/api/users/{id}`     | admin  | Delete an account (not self / last admin). |
 | `GET`    | `/api/health`         | public | Health check.                            |
 
 ## Project layout

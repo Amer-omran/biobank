@@ -260,6 +260,32 @@
     </div>
   </section>
 
+  <section class="card admin-only" id="users-card">
+    <div class="card-h"><h2>User accounts</h2><span class="hint">administrators only</span></div>
+    <form class="entry" id="user-form" novalidate>
+      <div class="fgrid">
+        <label class="f req"><span>Username</span>
+          <input class="mono-in" name="username" autocomplete="off" placeholder="user5"></label>
+        <label class="f req"><span>Full name</span>
+          <input name="name" autocomplete="off" placeholder="Lab User 5"></label>
+        <label class="f req"><span>Role</span>
+          <select name="role"><option value="staff">staff</option><option value="admin">admin</option></select></label>
+        <label class="f req"><span>Password</span>
+          <input name="password" type="password" autocomplete="new-password" placeholder="min 6 characters"></label>
+      </div>
+      <div class="formfoot">
+        <button class="btn" type="submit">Add user</button>
+        <span class="err" id="user-err"></span>
+      </div>
+    </form>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>ID</th><th>Username</th><th>Name</th><th>Role</th><th>Created</th><th></th></tr></thead>
+        <tbody id="user-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
   <footer>
     Server-enforced roles · dependency-free Python backend ·
     run with <code>python3 -m biobank.server</code>.
