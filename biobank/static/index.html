@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🧬</text></svg>">
+<title>Biobank — Sample Registry</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg:#f4f6f8; --panel:#ffffff; --panel-2:#eef1f5; --line:#d8dee6; --line-soft:#e6eaf0;
+    --txt:#131a24; --txt-mut:#5c6b7a; --txt-faint:#8a97a6;
+    --accent:#0891b2; --accent-ink:#ffffff; --accent-soft:#e2f4f8;
+    --v-bg:#e2f4f8; --v-fg:#0e6f86; --p-bg:#ece7fb; --p-fg:#5b3fb0;
+    --b-bg:#fde8d6; --b-fg:#9a4d10;
+    --shadow:0 1px 2px rgba(16,24,40,.04), 0 8px 24px -12px rgba(16,24,40,.18);
+    --mono:ui-monospace,"SF Mono","Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#0b1017; --panel:#131a24; --panel-2:#0f151d; --line:#26313f; --line-soft:#1c2530;
+      --txt:#e8edf3; --txt-mut:#97a6b6; --txt-faint:#64748b;
+      --accent:#22d3ee; --accent-ink:#04222b; --accent-soft:#0c2b33;
+      --v-bg:#0c2b33; --v-fg:#67e3f9; --p-bg:#241a3d; --p-fg:#c4b5fd;
+      --b-bg:#33220f; --b-fg:#fbbf24;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 30px -16px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="light"]{color-scheme:light;
+    --bg:#f4f6f8;--panel:#ffffff;--panel-2:#eef1f5;--line:#d8dee6;--line-soft:#e6eaf0;
+    --txt:#131a24;--txt-mut:#5c6b7a;--txt-faint:#8a97a6;
+    --accent:#0891b2;--accent-ink:#ffffff;--accent-soft:#e2f4f8;
+    --v-bg:#e2f4f8;--v-fg:#0e6f86;--p-bg:#ece7fb;--p-fg:#5b3fb0;--b-bg:#fde8d6;--b-fg:#9a4d10;
+    --shadow:0 1px 2px rgba(16,24,40,.04), 0 8px 24px -12px rgba(16,24,40,.18);}
+  :root[data-theme="dark"]{color-scheme:dark;
+    --bg:#0b1017;--panel:#131a24;--panel-2:#0f151d;--line:#26313f;--line-soft:#1c2530;
+    --txt:#e8edf3;--txt-mut:#97a6b6;--txt-faint:#64748b;
+    --accent:#22d3ee;--accent-ink:#04222b;--accent-soft:#0c2b33;
+    --v-bg:#0c2b33;--v-fg:#67e3f9;--p-bg:#241a3d;--p-fg:#c4b5fd;--b-bg:#33220f;--b-fg:#fbbf24;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 30px -16px rgba(0,0,0,.7);}
+
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font-family:var(--sans);
+    line-height:1.5; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:1200px; margin:0 auto; padding:0 24px 64px; }
+
+  header { position:sticky; top:0; z-index:20;
+    background:color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter:saturate(1.4) blur(10px); border-bottom:1px solid var(--line); }
+  .hbar { max-width:1200px; margin:0 auto; padding:14px 24px; display:flex; align-items:center; gap:14px; }
+  .mark { width:34px; height:34px; border-radius:9px; flex:none; display:grid; place-items:center;
+    background:var(--accent); color:var(--accent-ink); font-weight:700; box-shadow:var(--shadow); }
+  .brand { display:flex; flex-direction:column; line-height:1.15; }
+  .brand b { font-size:15px; letter-spacing:-.01em; }
+  .brand span { font-size:11.5px; color:var(--txt-faint); text-transform:uppercase; letter-spacing:.09em; }
+  .spacer { flex:1; }
+  .tbtn { border:1px solid var(--line); background:var(--panel); color:var(--txt-mut);
+    width:34px; height:34px; border-radius:9px; cursor:pointer; font-size:15px; display:grid; place-items:center; }
+  .tbtn:hover { color:var(--txt); border-color:var(--accent); }
+
+  h1.page { font-size:22px; letter-spacing:-.02em; margin:30px 0 4px; text-wrap:balance; }
+  .lede { color:var(--txt-mut); font-size:14px; margin:0 0 20px; max-width:70ch; }
+
+  .toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:0 0 22px; }
+  .btn { font:inherit; font-size:13px; font-weight:600; cursor:pointer; border-radius:9px;
+    padding:9px 14px; border:1px solid var(--accent); background:var(--accent); color:var(--accent-ink); }
+  .btn.ghost { background:var(--panel); color:var(--txt-mut); border-color:var(--line); }
+  .btn.ghost:hover { color:var(--txt); border-color:var(--accent); }
+  .btn:hover { filter:brightness(1.06); }
+  .import-msg { font-size:13px; color:var(--txt-mut); }
+  .import-msg.ok { color:var(--accent); } .import-msg.bad { color:var(--b-fg); }
+
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:26px; }
+  .stat { background:var(--panel); border:1px solid var(--line); border-radius:13px;
+    padding:15px 16px; box-shadow:var(--shadow); }
+  .stat .k { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--txt-faint); }
+  .stat .v { font-family:var(--mono); font-size:30px; font-variant-numeric:tabular-nums;
+    letter-spacing:-.02em; margin-top:6px; }
+  .stat.accent .v { color:var(--accent); }
+  .stat .bars { display:flex; flex-direction:column; gap:5px; margin-top:11px; }
+  .bar { display:flex; align-items:center; gap:7px; font-size:11px; color:var(--txt-mut); }
+  .bar .track { flex:1; height:6px; border-radius:4px; background:var(--panel-2); overflow:hidden; }
+  .bar .fill { height:100%; border-radius:4px; background:var(--accent); opacity:.6; }
+  .bar .n { font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--txt-faint); min-width:18px; text-align:right; }
+
+  section.card { background:var(--panel); border:1px solid var(--line); border-radius:15px;
+    box-shadow:var(--shadow); overflow:hidden; margin-bottom:20px; }
+  .card-h { padding:15px 18px 13px; border-bottom:1px solid var(--line-soft);
+    display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .card-h h2 { font-size:14px; margin:0; letter-spacing:-.01em; }
+  .card-h .hint { margin-left:auto; font-size:11px; color:var(--txt-faint); }
+
+  form.entry { padding:16px 18px; background:var(--panel-2); border-bottom:1px solid var(--line-soft); }
+  .fgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:11px; }
+  label.f { display:flex; flex-direction:column; gap:4px; font-size:11px; color:var(--txt-faint);
+    text-transform:uppercase; letter-spacing:.05em; min-width:0; }
+  label.f.req > span::after { content:" *"; color:var(--accent); }
+  input, select { font:inherit; font-size:13px; color:var(--txt); background:var(--panel);
+    border:1px solid var(--line); border-radius:9px; padding:8px 10px; width:100%; min-width:0; }
+  input::placeholder { color:var(--txt-faint); }
+  input:focus, select:focus { outline:2px solid var(--accent); outline-offset:1px; border-color:transparent; }
+  .mono-in { font-family:var(--mono); }
+  .pick { background-image:linear-gradient(45deg,transparent 50%,var(--txt-faint) 50%),
+    linear-gradient(135deg,var(--txt-faint) 50%,transparent 50%);
+    background-position:calc(100% - 15px) 15px, calc(100% - 10px) 15px;
+    background-size:5px 5px,5px 5px; background-repeat:no-repeat; padding-right:26px; }
+  .formfoot { display:flex; align-items:center; gap:12px; margin-top:14px; }
+  .err { color:var(--b-fg); font-size:12px; }
+
+  .filters { display:flex; gap:8px; padding:12px 18px; flex-wrap:wrap; align-items:center;
+    border-bottom:1px solid var(--line-soft); }
+  .filters .search { flex:1; min-width:160px; max-width:280px; }
+  .chip { font-size:12px; padding:5px 11px; border-radius:8px; cursor:pointer; border:1px solid var(--line);
+    background:var(--panel); color:var(--txt-mut); }
+  .chip[aria-pressed="true"] { background:var(--accent-soft); color:var(--accent);
+    border-color:var(--accent); font-weight:600; }
+  .count { font-family:var(--mono); font-size:12px; color:var(--txt-faint); font-variant-numeric:tabular-nums; }
+
+  .scroll { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:9px 11px; border-bottom:1px solid var(--line-soft); white-space:nowrap; }
+  th { font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--txt-faint);
+    font-weight:600; position:sticky; top:0; background:var(--panel); }
+  tbody tr:last-child td { border-bottom:none; }
+  tbody tr:hover { background:var(--panel-2); }
+  td.num { font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--txt-mut); }
+  td.key { font-family:var(--mono); color:var(--accent); font-weight:600; }
+  .muted { color:var(--txt-faint); }
+  .empty { padding:30px 18px; text-align:center; color:var(--txt-faint); font-size:13px; }
+
+  .dept { display:inline-flex; align-items:center; gap:5px; font-size:11px; padding:3px 9px;
+    border-radius:20px; font-weight:600; }
+  .dept::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+  .dept.virology { background:var(--v-bg); color:var(--v-fg); }
+  .dept.Parasitic { background:var(--p-bg); color:var(--p-fg); }
+  .dept.Bacterial { background:var(--b-bg); color:var(--b-fg); }
+  .x { border:none; background:none; color:var(--txt-faint); cursor:pointer; font-size:15px;
+    padding:2px 6px; border-radius:6px; line-height:1; }
+  .x:hover { color:var(--b-fg); background:var(--b-bg); }
+
+  footer { margin-top:30px; color:var(--txt-faint); font-size:12px; text-align:center; }
+  footer code { font-family:var(--mono); color:var(--txt-mut); }
+
+  #login { position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:24px; background:var(--bg); }
+  .login-card { width:100%; max-width:390px; background:var(--panel); border:1px solid var(--line);
+    border-radius:16px; box-shadow:var(--shadow); padding:28px 26px; }
+  .login-card .mark { width:46px; height:46px; border-radius:12px; font-size:22px; margin-bottom:16px; }
+  .login-card h2 { margin:0 0 4px; font-size:19px; letter-spacing:-.01em; }
+  .login-card .sub { margin:0 0 22px; font-size:13px; color:var(--txt-mut); }
+  .login-card .field { margin-bottom:14px; }
+  .login-card label { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--txt-faint); margin-bottom:5px; }
+  .login-card .btn { width:100%; justify-content:center; padding:11px; margin-top:6px; }
+  .login-err { color:var(--b-fg); font-size:12.5px; min-height:17px; margin-top:8px; }
+  .demo-accts { margin-top:18px; border-top:1px solid var(--line-soft); padding-top:14px;
+    font-size:11.5px; color:var(--txt-faint); line-height:1.7; }
+  .demo-accts b { color:var(--txt-mut); font-weight:600; }
+  .demo-accts code { font-family:var(--mono); color:var(--accent); cursor:pointer; }
+  .demo-accts code:hover { text-decoration:underline; }
+
+  .userchip { display:flex; align-items:center; gap:9px; font-size:12.5px; }
+  .userchip .who { font-weight:600; }
+  .role-badge { font-size:10px; text-transform:uppercase; letter-spacing:.04em; padding:3px 9px;
+    border-radius:20px; font-weight:700; white-space:nowrap; }
+  .role-badge.admin { background:var(--accent-soft); color:var(--accent); }
+  .role-badge.staff { background:var(--p-bg); color:var(--p-fg); }
+
+  :root:not(.authed) .wrap { display:none; }
+  :root:not(.authed) .auth-only { display:none !important; }
+  :root.authed #login { display:none; }
+  :root.role-staff .admin-only { display:none !important; }
+  :root.role-staff .restricted-field { display:none !important; }
+
+  @media (max-width:900px){ .stats{grid-template-columns:repeat(2,1fr);} .fgrid{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:560px){ .fgrid{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <form class="login-card" id="login-form" novalidate>
+    <div class="mark">🧬</div>
+    <h2>Biobank sign-in</h2>
+    <p class="sub">Sign in to access the sample registry.</p>
+    <div class="field">
+      <label for="lg-user">Username</label>
+      <input id="lg-user" name="user" autocomplete="username" placeholder="e.g. admin1" autofocus>
+    </div>
+    <div class="field">
+      <label for="lg-pass">Password</label>
+      <input id="lg-pass" name="pass" type="password" autocomplete="current-password" placeholder="••••••••">
+    </div>
+    <button class="btn" type="submit">Sign in</button>
+    <div class="login-err" id="login-err"></div>
+    <div class="demo-accts">
+      <b>Accounts</b> (click a name to fill) —
+      Full access: <code data-fill="admin1">admin1</code> · <code data-fill="admin2">admin2</code>
+      &nbsp;•&nbsp; Data entry: <code data-fill="user1">user1</code>, <code data-fill="user2">user2</code>,
+      <code data-fill="user3">user3</code>, <code data-fill="user4">user4</code><br>
+      Default password for seeded accounts is printed in the server console on first run.
+    </div>
+  </form>
+</div>
+
+<header>
+  <div class="hbar">
+    <div class="mark">🧬</div>
+    <div class="brand"><b>Biobank</b><span>Animal Sample Registry</span></div>
+    <div class="spacer"></div>
+    <div class="userchip auth-only" id="userchip"></div>
+    <button class="tbtn auth-only" id="logout" title="Sign out" aria-label="Sign out">⎋</button>
+    <button class="tbtn" id="theme" title="Toggle theme" aria-label="Toggle theme">◐</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <h1 class="page">Sample registry</h1>
+  <p class="lede">Log biological samples using the lab data-form fields. The
+    <em>area, animal type, sample type, disease, strain</em> and <em>department</em> fields offer
+    ready-made choices — pick one or type a new value. Access is enforced on the server by role.</p>
+
+  <div class="toolbar">
+    <button class="btn admin-only" id="import-btn">⬆&nbsp; Import Excel / CSV</button>
+    <button class="btn ghost" id="tmpl-btn">⬇&nbsp; Download template</button>
+    <input type="file" id="file" accept=".xlsx,.csv" hidden>
+    <span class="import-msg" id="import-msg" role="status" aria-live="polite"></span>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <section class="card">
+    <div class="card-h"><h2>New sample record</h2><span class="hint">fields marked * are required</span></div>
+    <form class="entry" id="rec-form" novalidate>
+      <div class="fgrid" id="fgrid"></div>
+      <div class="formfoot">
+        <button class="btn" type="submit">Save record</button>
+        <span class="err" id="rec-err"></span>
+      </div>
+    </form>
+
+    <div class="filters">
+      <input class="search" id="search" placeholder="Search records…" autocomplete="off">
+      <button class="chip" data-dept="" aria-pressed="true">All depts</button>
+      <button class="chip" data-dept="virology" aria-pressed="false">Virology</button>
+      <button class="chip" data-dept="Parasitic" aria-pressed="false">Parasitic</button>
+      <button class="chip" data-dept="Bacterial" aria-pressed="false">Bacterial</button>
+      <span class="count" id="rec-count" style="margin-left:auto"></span>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr>
+          <th>NO</th><th>Lab #</th><th>Sample #</th><th>Storage date</th><th>Storage</th>
+          <th>Freezer</th><th>Shelf</th><th>Plate</th><th>Area</th><th>Animal</th>
+          <th>Sample type</th><th>Qty</th><th>Conc.</th><th>Disease</th><th>Strain</th>
+          <th>Department</th><th>Barcode</th><th>By</th><th></th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card admin-only" id="users-card">
+    <div class="card-h"><h2>User accounts</h2><span class="hint">administrators only</span></div>
+    <form class="entry" id="user-form" novalidate>
+      <div class="fgrid">
+        <label class="f req"><span>Username</span>
+          <input class="mono-in" name="username" autocomplete="off" placeholder="user5"></label>
+        <label class="f req"><span>Full name</span>
+          <input name="name" autocomplete="off" placeholder="Lab User 5"></label>
+        <label class="f req"><span>Role</span>
+          <select name="role"><option value="staff">staff</option><option value="admin">admin</option></select></label>
+        <label class="f req"><span>Password</span>
+          <input name="password" type="password" autocomplete="new-password" placeholder="min 6 characters"></label>
+      </div>
+      <div class="formfoot">
+        <button class="btn" type="submit">Add user</button>
+        <span class="err" id="user-err"></span>
+      </div>
+    </form>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>ID</th><th>Username</th><th>Name</th><th>Role</th><th>Created</th><th></th></tr></thead>
+        <tbody id="user-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    Server-enforced roles · dependency-free Python backend ·
+    run with <code>python3 -m biobank.server</code>.
+  </footer>
+
+  <datalist id="dl-area"></datalist>
+  <datalist id="dl-animal_type"></datalist>
+  <datalist id="dl-sample_type"></datalist>
+  <datalist id="dl-disease"></datalist>
+  <datalist id="dl-strain"></datalist>
+  <datalist id="dl-department"></datalist>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,291 @@
+"""Database layer for the biobank system.
+
+A dependency-free SQLite store (standard library only) covering:
+
+* users        – credentials with salted PBKDF2 password hashes and a role
+* sessions     – opaque login tokens backing cookie-based auth
+* samples      – the sample registry (fields mirror the lab data form)
+
+Access control is enforced at the HTTP layer (see server.py); this module
+provides the primitives and never trusts a plaintext password on disk.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import hmac
+import secrets
+import sqlite3
+import threading
+from datetime import datetime, timezone
+from typing import Any, Optional
+
+from .options import (
+    NUMERIC_FIELDS,
+    OPTIONS,
+    REQUIRED_FIELDS,
+    SAMPLE_FIELDS,
+)
+
+PBKDF2_ITERATIONS = 200_000
+SESSION_TTL_SECONDS = 8 * 60 * 60  # 8 hours
+
+_SAMPLE_COLUMNS = ", ".join(SAMPLE_FIELDS)
+_SAMPLE_PLACEHOLDERS = ", ".join("?" for _ in SAMPLE_FIELDS)
+
+SCHEMA = f"""
+CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    username      TEXT NOT NULL UNIQUE,
+    name          TEXT NOT NULL,
+    role          TEXT NOT NULL CHECK (role IN ('admin', 'staff')),
+    salt          TEXT NOT NULL,
+    pw_hash       TEXT NOT NULL,
+    created_at    TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+    token         TEXT PRIMARY KEY,
+    user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at    TEXT NOT NULL,
+    expires_at    TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS samples (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    lab_number    TEXT,
+    sample_number TEXT,
+    storage_date  TEXT,
+    storage_method TEXT,
+    freezer_no    TEXT,
+    shelf_no      TEXT,
+    plate_no      TEXT,
+    area          TEXT NOT NULL,
+    animal_type   TEXT NOT NULL,
+    sample_type   TEXT NOT NULL,
+    quantity_ml   REAL,
+    concentration TEXT,
+    disease       TEXT,
+    strain        TEXT,
+    department    TEXT NOT NULL,
+    barcode       TEXT,
+    created_by    TEXT,
+    created_at    TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_samples_dept ON samples(department);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+"""
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _iso(dt: datetime) -> str:
+    return dt.isoformat(timespec="seconds")
+
+
+def hash_password(password: str, salt: Optional[str] = None) -> tuple[str, str]:
+    """Return (salt_hex, hash_hex) using salted PBKDF2-HMAC-SHA256."""
+    salt = salt or secrets.token_hex(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), PBKDF2_ITERATIONS)
+    return salt, dk.hex()
+
+
+class Database:
+    """SQLite-backed store for users, sessions and samples."""
+
+    def __init__(self, path: str = "biobank.db") -> None:
+        self.path = path
+        self.conn = sqlite3.connect(path, check_same_thread=False)
+        self.conn.row_factory = sqlite3.Row
+        self.conn.execute("PRAGMA foreign_keys = ON")
+        self.conn.executescript(SCHEMA)
+        self.conn.commit()
+        self._lock = threading.RLock()
+
+    def close(self) -> None:
+        self.conn.close()
+
+    # ----- users ----------------------------------------------------------
+
+    def create_user(self, username: str, name: str, role: str, password: str) -> dict[str, Any]:
+        if role not in ("admin", "staff"):
+            raise ValueError("role must be 'admin' or 'staff'")
+        salt, pw_hash = hash_password(password)
+        with self._lock:
+            try:
+                cur = self.conn.execute(
+                    "INSERT INTO users (username, name, role, salt, pw_hash, created_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (username, name, role, salt, pw_hash, _iso(_now())),
+                )
+            except sqlite3.IntegrityError:
+                raise ValueError(f"username '{username}' already exists")
+            self.conn.commit()
+            return self._user_public(cur.lastrowid)  # type: ignore[arg-type]
+
+    def _user_public(self, user_id: int) -> dict[str, Any]:
+        row = self.conn.execute(
+            "SELECT id, username, name, role, created_at FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        return dict(row) if row else {}
+
+    def get_user(self, user_id: int) -> Optional[dict[str, Any]]:
+        with self._lock:
+            return self._user_public(user_id) or None
+
+    def count_admins(self) -> int:
+        with self._lock:
+            return self.conn.execute(
+                "SELECT COUNT(*) AS c FROM users WHERE role = 'admin'"
+            ).fetchone()["c"]
+
+    def delete_user(self, user_id: int) -> bool:
+        with self._lock:
+            cur = self.conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            self.conn.commit()
+            return cur.rowcount > 0
+
+    def verify_credentials(self, username: str, password: str) -> Optional[dict[str, Any]]:
+        with self._lock:
+            row = self.conn.execute(
+                "SELECT * FROM users WHERE username = ?", (username,)
+            ).fetchone()
+        if row is None:
+            # Still run a hash to reduce timing signal on unknown usernames.
+            hash_password(password)
+            return None
+        _, candidate = hash_password(password, row["salt"])
+        if not hmac.compare_digest(candidate, row["pw_hash"]):
+            return None
+        return {"id": row["id"], "username": row["username"], "name": row["name"], "role": row["role"]}
+
+    def count_users(self) -> int:
+        with self._lock:
+            return self.conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
+
+    def list_users(self) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self.conn.execute(
+                "SELECT id, username, name, role, created_at FROM users ORDER BY id"
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    # ----- sessions -------------------------------------------------------
+
+    def create_session(self, user_id: int) -> str:
+        token = secrets.token_urlsafe(32)
+        now = _now()
+        expires = now.timestamp() + SESSION_TTL_SECONDS
+        with self._lock:
+            self.conn.execute(
+                "INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+                (token, user_id, _iso(now), _iso(datetime.fromtimestamp(expires, timezone.utc))),
+            )
+            self.conn.commit()
+        return token
+
+    def get_session_user(self, token: Optional[str]) -> Optional[dict[str, Any]]:
+        if not token:
+            return None
+        with self._lock:
+            row = self.conn.execute(
+                "SELECT s.expires_at, u.id, u.username, u.name, u.role "
+                "FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?",
+                (token,),
+            ).fetchone()
+            if row is None:
+                return None
+            if datetime.fromisoformat(row["expires_at"]) < _now():
+                self.conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+                self.conn.commit()
+                return None
+        return {"id": row["id"], "username": row["username"], "name": row["name"], "role": row["role"]}
+
+    def delete_session(self, token: Optional[str]) -> None:
+        if not token:
+            return
+        with self._lock:
+            self.conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+            self.conn.commit()
+
+    # ----- samples --------------------------------------------------------
+
+    def create_sample(self, data: dict[str, Any], created_by: Optional[str] = None) -> dict[str, Any]:
+        values: list[Any] = []
+        for field in SAMPLE_FIELDS:
+            v = data.get(field)
+            if isinstance(v, str):
+                v = v.strip() or None
+            if field in REQUIRED_FIELDS and not v:
+                raise ValueError(f"'{field}' is required")
+            if field in NUMERIC_FIELDS and v not in (None, ""):
+                try:
+                    v = float(v)
+                except (TypeError, ValueError):
+                    raise ValueError(f"'{field}' must be a number")
+            values.append(v)
+        with self._lock:
+            cur = self.conn.execute(
+                f"INSERT INTO samples ({_SAMPLE_COLUMNS}, created_by, created_at) "
+                f"VALUES ({_SAMPLE_PLACEHOLDERS}, ?, ?)",
+                (*values, created_by, _iso(_now())),
+            )
+            self.conn.commit()
+            return self.get_sample(cur.lastrowid)  # type: ignore[arg-type]
+
+    def get_sample(self, sample_id: int) -> Optional[dict[str, Any]]:
+        with self._lock:
+            row = self.conn.execute("SELECT * FROM samples WHERE id = ?", (sample_id,)).fetchone()
+        return dict(row) if row else None
+
+    def list_samples(
+        self, department: Optional[str] = None, search: Optional[str] = None
+    ) -> list[dict[str, Any]]:
+        query = "SELECT * FROM samples"
+        clauses: list[str] = []
+        params: list[Any] = []
+        if department:
+            clauses.append("department = ?")
+            params.append(department)
+        if search:
+            like = f"%{search.lower()}%"
+            searchable = [f for f in SAMPLE_FIELDS if f not in NUMERIC_FIELDS]
+            clauses.append("(" + " OR ".join(f"LOWER(IFNULL({f},'')) LIKE ?" for f in searchable) + ")")
+            params.extend([like] * len(searchable))
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY id DESC"
+        with self._lock:
+            rows = self.conn.execute(query, params).fetchall()
+        return [dict(r) for r in rows]
+
+    def delete_sample(self, sample_id: int) -> bool:
+        with self._lock:
+            cur = self.conn.execute("DELETE FROM samples WHERE id = ?", (sample_id,))
+            self.conn.commit()
+            return cur.rowcount > 0
+
+    # ----- stats ----------------------------------------------------------
+
+    def stats(self) -> dict[str, Any]:
+        with self._lock:
+            total = self.conn.execute("SELECT COUNT(*) AS c FROM samples").fetchone()["c"]
+
+            def group(field: str) -> dict[str, int]:
+                return {
+                    r[field]: r["c"]
+                    for r in self.conn.execute(
+                        f"SELECT {field}, COUNT(*) AS c FROM samples "
+                        f"WHERE {field} IS NOT NULL AND {field} <> '' GROUP BY {field}"
+                    ).fetchall()
+                }
+
+            return {
+                "total": total,
+                "by_department": group("department"),
+                "by_sample_type": group("sample_type"),
+                "by_animal_type": group("animal_type"),
+            }
