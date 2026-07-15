@@ -136,6 +136,9 @@ class BiobankHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         self._dispatch("POST")
 
+    def do_PATCH(self) -> None:
+        self._dispatch("PATCH")
+
     def do_DELETE(self) -> None:
         self._dispatch("DELETE")
 
@@ -247,9 +250,32 @@ class BiobankHandler(BaseHTTPRequestHandler):
         sample = self.db.create_sample(data, created_by=user["username"])
         self._send_json(201, sample)
 
+    def h_update_sample(self, match: "re.Match[str]", user: Any) -> None:
+        data = {k: v for k, v in self._read_json().items() if k in SAMPLE_FIELDS}
+        if user["role"] != "admin":
+            for field in RESTRICTED_FIELDS:  # staff cannot change these; leave them intact
+                data.pop(field, None)
+        sample = self.db.update_sample(int(match.group("id")), data)
+        if sample is None:
+            self._send_json(404, {"error": "sample not found"})
+        else:
+            self._send_json(200, sample)
+
     def h_delete_sample(self, match: "re.Match[str]", user: Any) -> None:
         ok = self.db.delete_sample(int(match.group("id")))
         self._send_json(200 if ok else 404, {"deleted": ok})
+
+    def h_change_password(self, match: "re.Match[str]", user: Any) -> None:
+        body = self._read_json()
+        current = str(body.get("current_password", ""))
+        new = str(body.get("new_password", ""))
+        if len(new) < 6:
+            raise ValueError("new password must be at least 6 characters")
+        if self.db.verify_credentials(user["username"], current) is None:
+            self._send_json(400, {"error": "current password is incorrect"})
+            return
+        self.db.update_password(user["id"], new)
+        self._send_json(200, {"ok": True})
 
     def h_import(self, match: "re.Match[str]", user: Any) -> None:
         filename = self._query().get("filename", ["upload.xlsx"])[0]
@@ -282,7 +308,9 @@ def _build_routes() -> list[Route]:
         ("DELETE", p(r"/api/users/(?P<id>\d+)"), "h_delete_user", True),
         ("GET", p(r"/api/samples"), "h_list_samples", False),
         ("POST", p(r"/api/samples"), "h_create_sample", False),
+        ("PATCH", p(r"/api/samples/(?P<id>\d+)"), "h_update_sample", False),
         ("DELETE", p(r"/api/samples/(?P<id>\d+)"), "h_delete_sample", True),
+        ("POST", p(r"/api/change-password"), "h_change_password", False),
         ("POST", p(r"/api/import"), "h_import", True),
     ]
 

@@ -222,6 +222,7 @@
 
   <div class="toolbar">
     <button class="btn admin-only" id="import-btn">⬆&nbsp; Import Excel / CSV</button>
+    <button class="btn ghost" id="export-btn">⬇&nbsp; Export CSV</button>
     <button class="btn ghost" id="tmpl-btn">⬇&nbsp; Download template</button>
     <input type="file" id="file" accept=".xlsx,.csv" hidden>
     <span class="import-msg" id="import-msg" role="status" aria-live="polite"></span>
@@ -230,11 +231,12 @@
   <div class="stats" id="stats"></div>
 
   <section class="card">
-    <div class="card-h"><h2>New sample record</h2><span class="hint">fields marked * are required</span></div>
+    <div class="card-h"><h2 id="form-title">New sample record</h2><span class="hint">fields marked * are required</span></div>
     <form class="entry" id="rec-form" novalidate>
       <div class="fgrid" id="fgrid"></div>
       <div class="formfoot">
-        <button class="btn" type="submit">Save record</button>
+        <button class="btn" type="submit" id="save-btn">Save record</button>
+        <button class="btn ghost" type="button" id="cancel-edit" hidden>Cancel</button>
         <span class="err" id="rec-err"></span>
       </div>
     </form>
@@ -258,6 +260,24 @@
         <tbody id="rows"></tbody>
       </table>
     </div>
+  </section>
+
+  <section class="card auth-only" id="account-card">
+    <div class="card-h"><h2>My account</h2><span class="hint">change your password</span></div>
+    <form class="entry" id="pw-form" novalidate>
+      <div class="fgrid">
+        <label class="f req"><span>Current password</span>
+          <input name="current_password" type="password" autocomplete="current-password"></label>
+        <label class="f req"><span>New password</span>
+          <input name="new_password" type="password" autocomplete="new-password" placeholder="min 6 characters"></label>
+        <label class="f req"><span>Confirm new</span>
+          <input name="confirm" type="password" autocomplete="new-password"></label>
+      </div>
+      <div class="formfoot">
+        <button class="btn" type="submit">Update password</button>
+        <span class="err" id="pw-msg"></span>
+      </div>
+    </form>
   </section>
 
   <section class="card admin-only" id="users-card">

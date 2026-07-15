@@ -29,6 +29,8 @@ let me = null;
 let deptFilter = "";
 let searchTerm = "";
 let searchTimer = null;
+let lastSamples = [];
+let editingId = null;
 
 // ---- API helper ------------------------------------------------------------
 async function api(path, { method = "GET", body, raw } = {}) {
@@ -99,7 +101,9 @@ function renderRows(samples) {
     ${num(s.quantity_ml)}${cell(s.concentration)}${cell(s.disease)}${cell(s.strain)}
     <td>${s.department ? `<span class="dept ${esc(s.department)}">${esc(s.department)}</span>` : "—"}</td>
     ${cell(s.barcode)}<td class="muted">${s.created_by ? esc(s.created_by) : "—"}</td>
-    <td style="text-align:right">${isAdmin ? `<button class="x" data-del="${s.id}" title="Delete">✕</button>` : ""}</td>
+    <td style="text-align:right; white-space:nowrap">
+      <button class="x" data-edit="${s.id}" title="Edit">✎</button>
+      ${isAdmin ? `<button class="x" data-del="${s.id}" title="Delete">✕</button>` : ""}</td>
   </tr>`).join("") : `<tr><td colspan="19" class="empty">No records${
     searchTerm || deptFilter ? " match your filters" : " yet"}.</td></tr>`;
 }
@@ -109,6 +113,7 @@ async function refresh() {
   if (deptFilter) q.set("department", deptFilter);
   if (searchTerm) q.set("search", searchTerm);
   const { samples } = await api("/api/samples?" + q.toString());
+  lastSamples = samples;
   renderStats(samples);
   renderRows(samples);
 }
@@ -180,16 +185,54 @@ $(".demo-accts").addEventListener("click", e => {
   $("#lg-user").value = c.dataset.fill; $("#lg-pass").focus();
 });
 
+function startEdit(s) {
+  editingId = s.id;
+  const form = $("#rec-form");
+  FIELD_SPEC.forEach(f => {
+    const el = form.elements[f.name];
+    if (el) el.value = s[f.name] == null ? "" : s[f.name];
+  });
+  $("#form-title").textContent = "Edit record #" + s.id;
+  $("#save-btn").textContent = "Update record";
+  $("#cancel-edit").hidden = false;
+  $("#rec-err").textContent = "";
+  form.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+function cancelEdit() {
+  editingId = null;
+  $("#rec-form").reset();
+  $("#form-title").textContent = "New sample record";
+  $("#save-btn").textContent = "Save record";
+  $("#cancel-edit").hidden = true;
+  $("#rec-err").textContent = "";
+}
+$("#cancel-edit").addEventListener("click", cancelEdit);
+
 $("#rec-form").addEventListener("submit", async e => {
   e.preventDefault();
   const err = $("#rec-err"); err.textContent = "";
   const body = {};
-  new FormData(e.target).forEach((v, k) => { if (String(v).trim() !== "") body[k] = String(v).trim(); });
-  try { await api("/api/samples", { method: "POST", body }); e.target.reset(); await refresh(); }
-  catch (ex) { err.textContent = ex.message; }
+  new FormData(e.target).forEach((v, k) => {
+    const val = String(v).trim();
+    // when editing, send empties too so a cleared optional field is saved
+    if (editingId || val !== "") body[k] = val;
+  });
+  try {
+    if (editingId) await api("/api/samples/" + editingId, { method: "PATCH", body });
+    else await api("/api/samples", { method: "POST", body });
+    cancelEdit();
+    await refresh();
+  } catch (ex) { err.textContent = ex.message; }
 });
 $("#rows").addEventListener("click", async e => {
+  const edit = e.target.closest("[data-edit]");
+  if (edit) {
+    const s = lastSamples.find(x => String(x.id) === edit.dataset.edit);
+    if (s) startEdit(s);
+    return;
+  }
   const b = e.target.closest("[data-del]"); if (!b) return;
+  if (String(editingId) === b.dataset.del) cancelEdit();
   try { await api("/api/samples/" + b.dataset.del, { method: "DELETE" }); await refresh(); }
   catch (ex) { $("#rec-err").textContent = ex.message; }
 });
@@ -223,6 +266,32 @@ $("#tmpl-btn").addEventListener("click", () => {
   a.href = URL.createObjectURL(new Blob(["﻿" + rows], { type: "text/csv;charset=utf-8" }));
   a.download = "biobank-import-template.csv"; a.click(); URL.revokeObjectURL(a.href);
 });
+// ---- export ----------------------------------------------------------------
+$("#export-btn").addEventListener("click", () => {
+  if (!lastSamples.length) { $("#import-msg").className = "import-msg"; $("#import-msg").textContent = "Nothing to export."; return; }
+  const q = v => { v = v == null ? "" : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const cols = ["id", ...FIELD_SPEC.map(f => f.name), "created_by", "created_at"];
+  const head = ["NO", ...FIELD_SPEC.map(f => f.label), "Created by", "Created at"];
+  const lines = [head.join(",")].concat(lastSamples.map(s => cols.map(c => q(s[c])).join(",")));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+  a.download = "biobank-export.csv"; a.click(); URL.revokeObjectURL(a.href);
+});
+
+// ---- change password -------------------------------------------------------
+$("#pw-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const msg = $("#pw-msg"); msg.style.color = ""; msg.textContent = "";
+  const f = new FormData(e.target);
+  if (f.get("new_password") !== f.get("confirm")) { msg.textContent = "New passwords do not match."; return; }
+  try {
+    await api("/api/change-password", { method: "POST", body: {
+      current_password: f.get("current_password"), new_password: f.get("new_password"),
+    }});
+    e.target.reset(); msg.style.color = "var(--accent)"; msg.textContent = "Password updated.";
+  } catch (ex) { msg.textContent = ex.message; }
+});
+
 $("#import-btn").addEventListener("click", () => $("#file").click());
 $("#file").addEventListener("change", async e => {
   const file = e.target.files[0]; if (!file) return;

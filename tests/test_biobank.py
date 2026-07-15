@@ -257,6 +257,48 @@ class ApiTests(unittest.TestCase):
         status, _, _ = self._req("GET", "/api/me", token=token)
         self.assertEqual(status, 401)
 
+    def test_edit_sample_admin_and_staff(self):
+        admin = self._login("admin1")
+        _, rec, _ = self._req("POST", "/api/samples", {
+            "area": "Riyadh", "animal_type": "Cattle", "sample_type": "blood",
+            "department": "virology", "barcode": "BC-ORIG"}, token=admin)
+        sid = rec["id"]
+        # admin can edit any field, including restricted
+        status, updated, _ = self._req("PATCH", f"/api/samples/{sid}", {
+            "area": "Jeddah", "barcode": "BC-NEW"}, token=admin)
+        self.assertEqual(status, 200)
+        self.assertEqual(updated["area"], "Jeddah")
+        self.assertEqual(updated["barcode"], "BC-NEW")
+        # staff edit: allowed field changes, restricted field left intact
+        staff = self._login("user1")
+        status, u2, _ = self._req("PATCH", f"/api/samples/{sid}", {
+            "sample_type": "Serum", "barcode": "HACK"}, token=staff)
+        self.assertEqual(status, 200)
+        self.assertEqual(u2["sample_type"], "Serum")
+        self.assertEqual(u2["barcode"], "BC-NEW")          # unchanged by staff
+        # editing a required field to empty is rejected
+        status, _, _ = self._req("PATCH", f"/api/samples/{sid}", {"area": ""}, token=admin)
+        self.assertEqual(status, 400)
+
+    def test_change_password(self):
+        token = self._login("user4")
+        # wrong current password
+        status, _, _ = self._req("POST", "/api/change-password", {
+            "current_password": "nope", "new_password": "newpass1"}, token=token)
+        self.assertEqual(status, 400)
+        # too short
+        status, _, _ = self._req("POST", "/api/change-password", {
+            "current_password": SEED_PW, "new_password": "123"}, token=token)
+        self.assertEqual(status, 400)
+        # success, then the new password works and the old one does not
+        status, _, _ = self._req("POST", "/api/change-password", {
+            "current_password": SEED_PW, "new_password": "brandnew1"}, token=token)
+        self.assertEqual(status, 200)
+        status, _, _ = self._req("POST", "/api/login",
+                                 {"username": "user4", "password": SEED_PW})
+        self.assertEqual(status, 401)
+        self.assertTrue(self._login("user4", "brandnew1"))
+
     def test_admin_user_management(self):
         token = self._login("admin1")
         # create a new staff user

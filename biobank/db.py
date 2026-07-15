@@ -148,6 +148,14 @@ class Database:
             self.conn.commit()
             return cur.rowcount > 0
 
+    def update_password(self, user_id: int, new_password: str) -> None:
+        salt, pw_hash = hash_password(new_password)
+        with self._lock:
+            self.conn.execute(
+                "UPDATE users SET salt = ?, pw_hash = ? WHERE id = ?", (salt, pw_hash, user_id)
+            )
+            self.conn.commit()
+
     def verify_credentials(self, username: str, password: str) -> Optional[dict[str, Any]]:
         with self._lock:
             row = self.conn.execute(
@@ -235,6 +243,37 @@ class Database:
             )
             self.conn.commit()
             return self.get_sample(cur.lastrowid)  # type: ignore[arg-type]
+
+    def update_sample(self, sample_id: int, data: dict[str, Any]) -> Optional[dict[str, Any]]:
+        """Partial update: only the provided (whitelisted) fields are changed."""
+        columns: list[str] = []
+        values: list[Any] = []
+        for field in SAMPLE_FIELDS:
+            if field not in data:
+                continue
+            v = data[field]
+            if isinstance(v, str):
+                v = v.strip() or None
+            if field in REQUIRED_FIELDS and not v:
+                raise ValueError(f"'{field}' is required")
+            if field in NUMERIC_FIELDS and v not in (None, ""):
+                try:
+                    v = float(v)
+                except (TypeError, ValueError):
+                    raise ValueError(f"'{field}' must be a number")
+            columns.append(field)
+            values.append(v)
+        if not columns:
+            return self.get_sample(sample_id)
+        with self._lock:
+            cur = self.conn.execute(
+                f"UPDATE samples SET {', '.join(c + ' = ?' for c in columns)} WHERE id = ?",
+                (*values, sample_id),
+            )
+            self.conn.commit()
+            if cur.rowcount == 0:
+                return None
+            return self.get_sample(sample_id)
 
     def get_sample(self, sample_id: int) -> Optional[dict[str, Any]]:
         with self._lock:

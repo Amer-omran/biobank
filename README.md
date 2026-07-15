@@ -24,6 +24,8 @@ so it runs on any stock Python 3.9+ install.
 - **Excel/CSV import** (admin only) — reads native `.xlsx` (via stdlib `zipfile` +
   `xml.etree`) and CSV, auto-detects the header row beneath title rows, converts
   Excel date serials, and maps many column-name spellings.
+- **Edit and delete** records (staff edits leave the restricted fields intact),
+  **CSV export** of the current view, and **self-service password change**.
 - **JSON REST API** plus a single-page **web UI** (login screen, live stats, search
   and department filter), light/dark themed.
 
@@ -63,7 +65,9 @@ All `/api` routes except `/health` and `/login` require the session cookie set b
 | `GET`    | `/api/options`        | auth   | Option lists, fields, restricted fields. |
 | `GET`    | `/api/samples`        | auth   | List samples (`?department=`, `?search=`).|
 | `POST`   | `/api/samples`        | auth   | Create a sample (staff: restricted fields ignored). |
+| `PATCH`  | `/api/samples/{id}`   | auth   | Edit a sample (staff: restricted fields left intact). |
 | `DELETE` | `/api/samples/{id}`   | admin  | Delete a sample.                         |
+| `POST`   | `/api/change-password`| auth   | Change your own password.                |
 | `POST`   | `/api/import`         | admin  | Import `.xlsx`/`.csv` (`?filename=`).    |
 | `GET`    | `/api/users`          | admin  | List user accounts.                      |
 | `POST`   | `/api/users`          | admin  | Create an account (username, name, role, password). |
