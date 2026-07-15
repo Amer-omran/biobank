@@ -28,8 +28,9 @@ from typing import Any, Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
 from .db import Database
+from .exporter import build_xlsx
 from .importer import parse_file
-from .options import OPTIONS, RESTRICTED_FIELDS, SAMPLE_FIELDS
+from .options import FIELD_LABELS, OPTIONS, RESTRICTED_FIELDS, SAMPLE_FIELDS
 
 COOKIE_NAME = "bb_session"
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
@@ -71,6 +72,14 @@ class BiobankHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _send_bytes(self, data: bytes, content_type: str, filename: str) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def _read_bytes(self) -> bytes:
         length = int(self.headers.get("Content-Length", 0) or 0)
@@ -248,22 +257,69 @@ class BiobankHandler(BaseHTTPRequestHandler):
             for field in RESTRICTED_FIELDS:  # staff may not set these
                 data.pop(field, None)
         sample = self.db.create_sample(data, created_by=user["username"])
+        self.db.add_audit(
+            user["username"], "create", sample["id"],
+            f"created sample ({sample.get('sample_type') or '?'} · {sample.get('area') or '?'})",
+        )
         self._send_json(201, sample)
 
     def h_update_sample(self, match: "re.Match[str]", user: Any) -> None:
+        sample_id = int(match.group("id"))
         data = {k: v for k, v in self._read_json().items() if k in SAMPLE_FIELDS}
         if user["role"] != "admin":
             for field in RESTRICTED_FIELDS:  # staff cannot change these; leave them intact
                 data.pop(field, None)
-        sample = self.db.update_sample(int(match.group("id")), data)
+        before = self.db.get_sample(sample_id)
+        sample = self.db.update_sample(sample_id, data)
         if sample is None:
             self._send_json(404, {"error": "sample not found"})
-        else:
-            self._send_json(200, sample)
+            return
+        changes = {
+            f: [before.get(f), sample.get(f)]
+            for f in SAMPLE_FIELDS
+            if before and before.get(f) != sample.get(f)
+        }
+        if changes:
+            self.db.add_audit(
+                user["username"], "update", sample_id,
+                "updated " + ", ".join(changes.keys()),
+                json.dumps(changes, ensure_ascii=False),
+            )
+        self._send_json(200, sample)
 
     def h_delete_sample(self, match: "re.Match[str]", user: Any) -> None:
-        ok = self.db.delete_sample(int(match.group("id")))
+        sample_id = int(match.group("id"))
+        before = self.db.get_sample(sample_id)
+        ok = self.db.delete_sample(sample_id)
+        if ok:
+            self.db.add_audit(
+                user["username"], "delete", sample_id,
+                f"deleted sample #{sample_id}"
+                + (f" ({before.get('sample_type') or '?'} · {before.get('area') or '?'})" if before else ""),
+            )
         self._send_json(200 if ok else 404, {"deleted": ok})
+
+    def h_audit(self, match: "re.Match[str]", user: Any) -> None:
+        self._send_json(200, {"audit": self.db.list_audit()})
+
+    def h_export_xlsx(self, match: "re.Match[str]", user: Any) -> None:
+        q = self._query()
+        samples = self.db.list_samples(
+            department=q.get("department", [None])[0],
+            search=q.get("search", [None])[0],
+        )
+        headers = ["NO"] + [FIELD_LABELS[f] for f in SAMPLE_FIELDS] + ["Created by", "Created at"]
+        rows = [
+            [s["id"]] + [s.get(f) for f in SAMPLE_FIELDS] + [s.get("created_by"), s.get("created_at")]
+            for s in samples
+        ]
+        data = build_xlsx(headers, rows)
+        self.db.add_audit(user["username"], "export", None, f"exported {len(samples)} records to Excel")
+        self._send_bytes(
+            data,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "biobank-export.xlsx",
+        )
 
     def h_change_password(self, match: "re.Match[str]", user: Any) -> None:
         body = self._read_json()
@@ -290,6 +346,10 @@ class BiobankHandler(BaseHTTPRequestHandler):
                 added += 1
             except ValueError:
                 skipped += 1
+        self.db.add_audit(
+            user["username"], "import", None,
+            f"imported {added} record(s) from {filename}" + (f", {skipped} skipped" if skipped else ""),
+        )
         self._send_json(200, {"added": added, "skipped": skipped, "parsed": len(records)})
 
 
@@ -312,6 +372,8 @@ def _build_routes() -> list[Route]:
         ("DELETE", p(r"/api/samples/(?P<id>\d+)"), "h_delete_sample", True),
         ("POST", p(r"/api/change-password"), "h_change_password", False),
         ("POST", p(r"/api/import"), "h_import", True),
+        ("GET", p(r"/api/audit"), "h_audit", True),
+        ("GET", p(r"/api/export\.xlsx"), "h_export_xlsx", True),
     ]
 
 

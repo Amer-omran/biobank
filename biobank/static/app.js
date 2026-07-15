@@ -134,7 +134,25 @@ async function enterApp() {
   const { options } = await api("/api/options");
   fillDatalists(options);
   await refresh();
-  if (me && me.role === "admin") await loadUsers();
+  if (me && me.role === "admin") { await loadUsers(); await loadAudit(); }
+}
+
+// refresh the sample list, and the audit log too when signed in as admin
+async function reloadData() {
+  await refresh();
+  if (me && me.role === "admin") await loadAudit();
+}
+
+// ---- audit log (admin only) -----------------------------------------------
+async function loadAudit() {
+  const { audit } = await api("/api/audit");
+  $("#audit-rows").innerHTML = audit.length ? audit.map(a => `<tr>
+    <td class="num">${a.ts ? esc(a.ts.replace("T", " ").slice(0, 19)) : "—"}</td>
+    <td class="key">${a.username ? esc(a.username) : "—"}</td>
+    <td>${esc(a.action)}</td>
+    <td class="num">${a.sample_id != null ? "#" + a.sample_id : "—"}</td>
+    <td class="muted">${a.summary ? esc(a.summary) : "—"}</td>
+  </tr>`).join("") : `<tr><td colspan="5" class="empty">No activity yet.</td></tr>`;
 }
 
 // ---- user management (admin only) -----------------------------------------
@@ -221,7 +239,7 @@ $("#rec-form").addEventListener("submit", async e => {
     if (editingId) await api("/api/samples/" + editingId, { method: "PATCH", body });
     else await api("/api/samples", { method: "POST", body });
     cancelEdit();
-    await refresh();
+    await reloadData();
   } catch (ex) { err.textContent = ex.message; }
 });
 $("#rows").addEventListener("click", async e => {
@@ -233,7 +251,7 @@ $("#rows").addEventListener("click", async e => {
   }
   const b = e.target.closest("[data-del]"); if (!b) return;
   if (String(editingId) === b.dataset.del) cancelEdit();
-  try { await api("/api/samples/" + b.dataset.del, { method: "DELETE" }); await refresh(); }
+  try { await api("/api/samples/" + b.dataset.del, { method: "DELETE" }); await reloadData(); }
   catch (ex) { $("#rec-err").textContent = ex.message; }
 });
 $("#search").addEventListener("input", e => {
@@ -301,9 +319,27 @@ $("#file").addEventListener("change", async e => {
     const res = await api("/api/import?filename=" + encodeURIComponent(file.name), { method: "POST", raw: buf });
     msg.className = "import-msg ok";
     msg.textContent = `Imported ${res.added} record(s)` + (res.skipped ? ` · ${res.skipped} skipped` : "") + ".";
-    await refresh();
+    await reloadData();
   } catch (ex) { msg.className = "import-msg bad"; msg.textContent = "Import failed: " + ex.message; }
   e.target.value = "";
+});
+
+// ---- Excel export (admin only) --------------------------------------------
+$("#export-xlsx-btn").addEventListener("click", async () => {
+  const msg = $("#import-msg"); msg.className = "import-msg"; msg.textContent = "Preparing Excel…";
+  try {
+    const q = new URLSearchParams();
+    if (deptFilter) q.set("department", deptFilter);
+    if (searchTerm) q.set("search", searchTerm);
+    const res = await fetch("/api/export.xlsx?" + q.toString());
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "biobank-export.xlsx"; a.click();
+    URL.revokeObjectURL(a.href);
+    msg.className = "import-msg ok"; msg.textContent = "Excel exported.";
+    if (me && me.role === "admin") await loadAudit();
+  } catch (ex) { msg.className = "import-msg bad"; msg.textContent = "Export failed: " + ex.message; }
 });
 
 // ---- boot ------------------------------------------------------------------

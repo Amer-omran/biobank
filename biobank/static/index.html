@@ -223,6 +223,7 @@
   <div class="toolbar">
     <button class="btn admin-only" id="import-btn">⬆&nbsp; Import Excel / CSV</button>
     <button class="btn ghost" id="export-btn">⬇&nbsp; Export CSV</button>
+    <button class="btn ghost admin-only" id="export-xlsx-btn">⬇&nbsp; Export Excel</button>
     <button class="btn ghost" id="tmpl-btn">⬇&nbsp; Download template</button>
     <input type="file" id="file" accept=".xlsx,.csv" hidden>
     <span class="import-msg" id="import-msg" role="status" aria-live="polite"></span>
@@ -302,6 +303,16 @@
       <table>
         <thead><tr><th>ID</th><th>Username</th><th>Name</th><th>Role</th><th>Created</th><th></th></tr></thead>
         <tbody id="user-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card admin-only" id="audit-card">
+    <div class="card-h"><h2>Audit log</h2><span class="hint">administrators only · latest 200 events</span></div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>When (UTC)</th><th>User</th><th>Action</th><th>Sample</th><th>Details</th></tr></thead>
+        <tbody id="audit-rows"></tbody>
       </table>
     </div>
   </section>

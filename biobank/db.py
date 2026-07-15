@@ -73,8 +73,19 @@ CREATE TABLE IF NOT EXISTS samples (
     created_at    TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS audit_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts          TEXT NOT NULL,
+    username    TEXT,
+    action      TEXT NOT NULL,
+    sample_id   INTEGER,
+    summary     TEXT,
+    details     TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_samples_dept ON samples(department);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_id ON audit_log(id);
 """
 
 
@@ -306,6 +317,27 @@ class Database:
             cur = self.conn.execute("DELETE FROM samples WHERE id = ?", (sample_id,))
             self.conn.commit()
             return cur.rowcount > 0
+
+    # ----- audit log ------------------------------------------------------
+
+    def add_audit(
+        self, username: Optional[str], action: str, sample_id: Optional[int],
+        summary: str, details: Optional[str] = None,
+    ) -> None:
+        with self._lock:
+            self.conn.execute(
+                "INSERT INTO audit_log (ts, username, action, sample_id, summary, details) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (_iso(_now()), username, action, sample_id, summary, details),
+            )
+            self.conn.commit()
+
+    def list_audit(self, limit: int = 200) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self.conn.execute(
+                "SELECT * FROM audit_log ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+        return [dict(r) for r in rows]
 
     # ----- stats ----------------------------------------------------------
 

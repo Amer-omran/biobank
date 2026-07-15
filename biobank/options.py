@@ -32,6 +32,16 @@ RESTRICTED_FIELDS = ["barcode", "freezer_no", "shelf_no", "plate_no"]
 # Fields that must be present on every record.
 REQUIRED_FIELDS = ["area", "animal_type", "sample_type", "department"]
 
+# Human-readable labels (used for spreadsheet export headers).
+FIELD_LABELS = {
+    "lab_number": "Lab number", "sample_number": "Sample number",
+    "storage_date": "Storage date", "storage_method": "Storage method",
+    "freezer_no": "Freezer no.", "shelf_no": "Shelf no.", "plate_no": "Plate no.",
+    "area": "Area", "animal_type": "Animal type", "sample_type": "Sample type",
+    "quantity_ml": "Quantity (ml)", "concentration": "Concentration",
+    "disease": "Disease", "strain": "Strain", "department": "Department", "barcode": "Barcode",
+}
+
 # Numeric fields (coerced to float, stored as REAL).
 NUMERIC_FIELDS = ["quantity_ml"]
 

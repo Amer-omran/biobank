@@ -26,6 +26,9 @@ so it runs on any stock Python 3.9+ install.
   Excel date serials, and maps many column-name spellings.
 - **Edit and delete** records (staff edits leave the restricted fields intact),
   **CSV export** of the current view, and **self-service password change**.
+- **Admin-only** (admin1/admin2): an **audit log** recording every create, edit,
+  delete, import and export, plus native **Excel (`.xlsx`) export** of the current
+  view (written with the standard library — no third-party packages).
 - **JSON REST API** plus a single-page **web UI** (login screen, live stats, search
   and department filter), light/dark themed.
 
@@ -69,6 +72,8 @@ All `/api` routes except `/health` and `/login` require the session cookie set b
 | `DELETE` | `/api/samples/{id}`   | admin  | Delete a sample.                         |
 | `POST`   | `/api/change-password`| auth   | Change your own password.                |
 | `POST`   | `/api/import`         | admin  | Import `.xlsx`/`.csv` (`?filename=`).    |
+| `GET`    | `/api/export.xlsx`    | admin  | Export the current view as `.xlsx` (`?department=`, `?search=`). |
+| `GET`    | `/api/audit`          | admin  | Recent audit-log events.                 |
 | `GET`    | `/api/users`          | admin  | List user accounts.                      |
 | `POST`   | `/api/users`          | admin  | Create an account (username, name, role, password). |
 | `DELETE` | `/api/users/{id}`     | admin  | Delete an account (not self / last admin). |
@@ -82,7 +87,8 @@ biobank/
   options.py        schema, option lists, import aliases
   db.py             SQLite layer: users, sessions, samples, stats
   importer.py       CSV + native .xlsx parsing (stdlib only)
-  server.py         HTTP server: auth, RBAC, API, static files
+  exporter.py       native .xlsx writing (stdlib only)
+  server.py         HTTP server: auth, RBAC, audit log, API, static files
   static/
     index.html      single-page web UI
     app.js          UI logic (talks to the REST API)

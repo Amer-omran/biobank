@@ -18,6 +18,7 @@ from urllib.error import HTTPError
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from biobank.db import Database, hash_password
+from biobank.exporter import build_xlsx
 from biobank.importer import normalize_date, parse_csv, parse_xlsx, rows_to_records
 from biobank.server import make_server, seed_users
 
@@ -112,6 +113,15 @@ class ImporterTests(unittest.TestCase):
         records, hdr = rows_to_records(rows)
         self.assertEqual(hdr, 2)
         self.assertEqual(records[0]["animal_type"], "Cattle")
+
+    def test_xlsx_export_roundtrips(self):
+        headers = ["NO", "Area", "Quantity (ml)"]
+        rows = [[1, "Riyadh", 5.0], [2, "Jeddah, north", 2.5]]  # comma + number
+        data = build_xlsx(headers, rows)
+        parsed = parse_xlsx(data)
+        self.assertEqual(parsed[0][:3], ["NO", "Area", "Quantity (ml)"])
+        self.assertEqual(parsed[2][1], "Jeddah, north")        # comma preserved
+        self.assertEqual(parsed[1][2], "5.0")                  # number cell
 
     def test_parse_xlsx(self):
         # Build a minimal .xlsx in memory (inline strings, no sharedStrings).
@@ -279,6 +289,44 @@ class ApiTests(unittest.TestCase):
         # editing a required field to empty is rejected
         status, _, _ = self._req("PATCH", f"/api/samples/{sid}", {"area": ""}, token=admin)
         self.assertEqual(status, 400)
+
+    def test_audit_log_admin_only_and_records_events(self):
+        admin = self._login("admin1")
+        staff = self._login("user1")
+        # staff cannot read the audit log
+        status, _, _ = self._req("GET", "/api/audit", token=staff)
+        self.assertEqual(status, 403)
+        # a create + an update produce audit entries
+        _, rec, _ = self._req("POST", "/api/samples", {
+            "area": "Hail", "animal_type": "Camel", "sample_type": "tissue",
+            "department": "Parasitic"}, token=staff)
+        self._req("PATCH", f"/api/samples/{rec['id']}", {"sample_type": "blood"}, token=admin)
+        status, body, _ = self._req("GET", "/api/audit", token=admin)
+        self.assertEqual(status, 200)
+        actions = [(e["action"], e["sample_id"]) for e in body["audit"]]
+        self.assertIn(("create", rec["id"]), actions)
+        self.assertIn(("update", rec["id"]), actions)
+        update_entry = next(e for e in body["audit"] if e["action"] == "update" and e["sample_id"] == rec["id"])
+        self.assertIn("sample_type", update_entry["summary"])
+
+    def test_xlsx_export_endpoint_admin_only(self):
+        admin = self._login("admin1")
+        self._req("POST", "/api/samples", {
+            "area": "Tabuk", "animal_type": "Falcon", "sample_type": "swabs",
+            "department": "virology"}, token=admin)
+        # staff is blocked
+        staff = self._login("user2")
+        status, _, _ = self._req("GET", "/api/export.xlsx", token=staff)
+        self.assertEqual(status, 403)
+        # admin gets a valid xlsx (verified by parsing it back)
+        url = f"http://127.0.0.1:{self.port}/api/export.xlsx"
+        req = urllib.request.Request(url, headers={"Cookie": f"bb_session={admin}"})
+        with urllib.request.urlopen(req) as resp:
+            self.assertIn("spreadsheetml", resp.headers.get("Content-Type", ""))
+            payload = resp.read()
+        parsed = parse_xlsx(payload)
+        self.assertEqual(parsed[0][0], "NO")
+        self.assertTrue(any("Tabuk" in row for row in parsed))
 
     def test_change_password(self):
         token = self._login("user4")
