@@ -1,0 +1,43 @@
+# Production deployment with automatic HTTPS via Caddy.
+#
+# Prerequisites: a domain name whose DNS A/AAAA record points at this server,
+# and ports 80 + 443 open. Then:
+#
+#   export SITE_ADDRESS=biobank.example.com
+#   export BIOBANK_SEED_PASSWORD='a-strong-first-run-password'
+#   docker compose up -d --build
+#
+# Caddy obtains and renews a Let's Encrypt certificate for SITE_ADDRESS
+# automatically, and proxies HTTPS traffic to the app over the internal network.
+
+services:
+  biobank:
+    build: .
+    environment:
+      BIOBANK_HOST: 0.0.0.0
+      BIOBANK_SECURE_COOKIE: "1"          # cookies only sent over HTTPS
+      BIOBANK_SEED_PASSWORD: ${BIOBANK_SEED_PASSWORD:?set BIOBANK_SEED_PASSWORD for the first run}
+    volumes:
+      - biobank-data:/data               # SQLite database persists here
+    restart: unless-stopped
+    # No published ports: only Caddy is exposed to the internet.
+
+  caddy:
+    image: caddy:2
+    depends_on:
+      - biobank
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS to your domain name}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+volumes:
+  biobank-data:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,39 @@
+# systemd unit for running Biobank on a plain VPS (no Docker).
+#
+# Install:
+#   sudo useradd --system --home /opt/biobank --shell /usr/sbin/nologin biobank
+#   sudo cp -r biobank /opt/biobank/biobank
+#   sudo mkdir -p /var/lib/biobank && sudo chown biobank:biobank /var/lib/biobank
+#   sudo cp deploy/biobank.service /etc/systemd/system/
+#   # edit BIOBANK_SEED_PASSWORD below, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now biobank
+#
+# The app listens on 127.0.0.1:8000; put nginx or Caddy in front for HTTPS.
+
+[Unit]
+Description=Biobank sample registry
+After=network.target
+
+[Service]
+Type=simple
+User=biobank
+Group=biobank
+WorkingDirectory=/opt/biobank
+Environment=BIOBANK_HOST=127.0.0.1
+Environment=BIOBANK_PORT=8000
+Environment=BIOBANK_DB=/var/lib/biobank/biobank.db
+Environment=BIOBANK_SECURE_COOKIE=1
+# Needed only on the first run (to seed the six accounts); can be removed after.
+Environment=BIOBANK_SEED_PASSWORD=change-me-on-first-run
+ExecStart=/usr/bin/python3 -m biobank.server
+Restart=on-failure
+RestartSec=3
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/biobank
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

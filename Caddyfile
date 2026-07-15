@@ -1,0 +1,5 @@
+# Automatic HTTPS. SITE_ADDRESS comes from the environment (see docker-compose.yml).
+{$SITE_ADDRESS} {
+	encode gzip
+	reverse_proxy biobank:8000
+}

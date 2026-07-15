@@ -47,6 +47,7 @@ class AuthError(Exception):
 class BiobankHandler(BaseHTTPRequestHandler):
     db: Database
     routes: list[Route] = []
+    secure_cookies: bool = False  # add the Secure flag when served behind HTTPS
 
     # ----- low-level helpers ---------------------------------------------
 
@@ -94,6 +95,12 @@ class BiobankHandler(BaseHTTPRequestHandler):
             return data if isinstance(data, dict) else {}
         except json.JSONDecodeError:
             return {}
+
+    def _session_cookie(self, token: str, max_age: int) -> str:
+        parts = [f"{COOKIE_NAME}={token}", "HttpOnly", "Path=/", "SameSite=Lax", f"Max-Age={max_age}"]
+        if self.secure_cookies:
+            parts.append("Secure")
+        return "; ".join(parts)
 
     def _cookie_token(self) -> Optional[str]:
         header = self.headers.get("Cookie")
@@ -185,15 +192,12 @@ class BiobankHandler(BaseHTTPRequestHandler):
             self._send_json(401, {"error": "wrong username or password"})
             return
         token = self.db.create_session(account["id"])
-        cookie = (
-            f"{COOKIE_NAME}={token}; HttpOnly; Path=/; SameSite=Lax; Max-Age={8*60*60}"
-        )
+        cookie = self._session_cookie(token, 8 * 60 * 60)
         self._send_json(200, {"user": self._public_user(account)}, cookie=cookie)
 
     def h_logout(self, match: "re.Match[str]", user: Any) -> None:
         self.db.delete_session(self._cookie_token())
-        cookie = f"{COOKIE_NAME}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0"
-        self._send_json(200, {"ok": True}, cookie=cookie)
+        self._send_json(200, {"ok": True}, cookie=self._session_cookie("", 0))
 
     def h_me(self, match: "re.Match[str]", user: Any) -> None:
         self._send_json(200, {"user": self._public_user(user)})
@@ -396,14 +400,21 @@ def seed_users(db: Database, password: str) -> bool:
     return True
 
 
+def _env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def make_server(
     host: str = "127.0.0.1", port: int = 8000, db_path: Optional[str] = None,
-    seed_password: Optional[str] = None,
+    seed_password: Optional[str] = None, secure_cookies: Optional[bool] = None,
 ) -> ThreadingHTTPServer:
     db = Database(db_path or os.environ.get("BIOBANK_DB", "biobank.db"))
     pw = seed_password or os.environ.get("BIOBANK_SEED_PASSWORD") or "ChangeMe@123"
     seeded = seed_users(db, pw)
-    handler_cls = type("BoundBiobankHandler", (BiobankHandler,), {"db": db})
+    secure = secure_cookies if secure_cookies is not None else _env_flag("BIOBANK_SECURE_COOKIE")
+    handler_cls = type(
+        "BoundBiobankHandler", (BiobankHandler,), {"db": db, "secure_cookies": secure}
+    )
     handler_cls.routes = _build_routes()
     server = ThreadingHTTPServer((host, port), handler_cls)
     server.biobank_db = db  # type: ignore[attr-defined]
@@ -413,13 +424,14 @@ def make_server(
 
 
 def main() -> None:
+    host = os.environ.get("BIOBANK_HOST", "127.0.0.1")
     port = int(os.environ.get("BIOBANK_PORT", "8000"))
-    server = make_server(port=port)
+    server = make_server(host=host, port=port)
     if server.seeded:  # type: ignore[attr-defined]
         print("Seeded default accounts (admin1, admin2, user1-4).")
         print(f"  Password for all seeded accounts: {server.seed_password}")  # type: ignore[attr-defined]
         print("  Set BIOBANK_SEED_PASSWORD before first run to choose your own.")
-    print(f"Biobank server listening on http://127.0.0.1:{port}")
+    print(f"Biobank server listening on http://{host}:{port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

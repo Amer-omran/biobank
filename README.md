@@ -47,10 +47,19 @@ Open <http://127.0.0.1:8000>, sign in as `admin1` (full access) or `user1`
 
 | Variable                | Default        | Description                                  |
 | ----------------------- | -------------- | -------------------------------------------- |
-| `BIOBANK_DB`            | `biobank.db`   | SQLite database path.                        |
+| `BIOBANK_HOST`          | `127.0.0.1`    | Bind address (`0.0.0.0` to accept remote connections). |
 | `BIOBANK_PORT`          | `8000`         | Port to listen on.                           |
+| `BIOBANK_DB`            | `biobank.db`   | SQLite database path.                        |
 | `BIOBANK_SEED_PASSWORD` | `ChangeMe@123` | Password for the six accounts, seeded once.  |
+| `BIOBANK_SECURE_COOKIE` | *(unset)*      | Set to `1` behind HTTPS to add the `Secure` cookie flag. |
 | `BIOBANK_VERBOSE`       | *(unset)*      | Set to enable HTTP request logging.          |
+
+## Deploying to a server
+
+To run Biobank on a server for your team (with HTTPS), see **[DEPLOY.md](DEPLOY.md)**.
+It covers a one-command **Docker Compose** setup with automatic Let's Encrypt
+certificates (`Dockerfile`, `docker-compose.yml`, `Caddyfile`) and a **systemd**
+option for a plain VPS (`deploy/biobank.service`).
 
 Accounts are seeded only when the database has no users. Change the seed password
 before first run, or manage users directly in the database.

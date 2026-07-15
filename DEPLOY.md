@@ -1,0 +1,126 @@
+# Deploying Biobank to a server
+
+Biobank is a pure-Python app (no third-party packages) that stores everything in
+a single SQLite file. Two supported ways to run it in production, both serving
+over **HTTPS** so login cookies are protected.
+
+You need:
+
+- A server/VPS with a public IP (any small instance is plenty).
+- A **domain name** (or subdomain) with a DNS `A` record pointing at the server.
+- Ports **80** and **443** open in the firewall.
+
+---
+
+## Option A — Docker Compose with automatic HTTPS (recommended)
+
+This runs the app plus [Caddy](https://caddyserver.com), which obtains and renews
+a free Let's Encrypt TLS certificate for your domain automatically.
+
+1. Install Docker (includes Compose): <https://docs.docker.com/engine/install/>.
+
+2. Copy the project to the server and enter it:
+
+   ```bash
+   git clone https://github.com/Amer-omran/biobank.git
+   cd biobank
+   git checkout claude/try-now-5sg4z8      # omit once merged into main
+   ```
+
+3. Point your domain's DNS `A` record at the server's IP, then start it:
+
+   ```bash
+   export SITE_ADDRESS=biobank.example.com          # your domain
+   export BIOBANK_SEED_PASSWORD='a-strong-first-run-password'
+   docker compose up -d --build
+   ```
+
+4. Open `https://biobank.example.com` and sign in as `admin1` (or `user1`) with
+   the seed password. **Change every password** from the "My account" panel, and
+   remove or rotate the seed accounts you don't need.
+
+Useful commands:
+
+```bash
+docker compose logs -f biobank     # view logs
+docker compose down                # stop (data is kept in the volume)
+docker compose pull && docker compose up -d --build   # update after a git pull
+```
+
+Your data lives in the `biobank-data` Docker volume. Back it up with:
+
+```bash
+docker run --rm -v biobank_biobank-data:/data -v "$PWD":/backup alpine \
+  cp /data/biobank.db /backup/biobank-backup.db
+```
+
+---
+
+## Option B — Plain VPS with systemd + a reverse proxy
+
+Use this if you prefer not to run Docker.
+
+1. Install Python 3.9+ (`sudo apt install python3`), then place the code and a
+   service account:
+
+   ```bash
+   sudo useradd --system --home /opt/biobank --shell /usr/sbin/nologin biobank
+   sudo mkdir -p /opt/biobank /var/lib/biobank
+   sudo cp -r biobank /opt/biobank/biobank
+   sudo chown -R biobank:biobank /opt/biobank /var/lib/biobank
+   ```
+
+2. Install the service unit, set a seed password inside it, and start it:
+
+   ```bash
+   sudo cp deploy/biobank.service /etc/systemd/system/
+   sudoedit /etc/systemd/system/biobank.service   # set BIOBANK_SEED_PASSWORD
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now biobank
+   sudo systemctl status biobank
+   ```
+
+   The app now listens on `127.0.0.1:8000` (not exposed to the internet yet).
+
+3. Put a reverse proxy in front for HTTPS. Easiest is Caddy:
+
+   ```bash
+   sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+   # (follow https://caddyserver.com/docs/install for the apt repo, then)
+   echo 'biobank.example.com {
+       reverse_proxy 127.0.0.1:8000
+   }' | sudo tee /etc/caddy/Caddyfile
+   sudo systemctl restart caddy
+   ```
+
+   Or use nginx + certbot if you already run nginx — proxy `/` to
+   `http://127.0.0.1:8000` and obtain a certificate with
+   `sudo certbot --nginx -d biobank.example.com`.
+
+4. Open `https://biobank.example.com`, sign in, and change the passwords.
+
+Back up the database file directly:
+
+```bash
+sudo cp /var/lib/biobank/biobank.db /root/biobank-backup-$(date +%F).db
+```
+
+---
+
+## Configuration reference
+
+| Variable                | Purpose                                                        |
+| ----------------------- | ------------------------------------------------------------- |
+| `BIOBANK_HOST`          | Bind address. `0.0.0.0` in containers; `127.0.0.1` behind a proxy. |
+| `BIOBANK_PORT`          | Listen port (default `8000`).                                 |
+| `BIOBANK_DB`            | SQLite file path (put it on a persistent volume).             |
+| `BIOBANK_SEED_PASSWORD` | Password for the six seeded accounts — used only on first run. |
+| `BIOBANK_SECURE_COOKIE` | `1` to add the `Secure` flag so cookies require HTTPS. Set behind TLS. |
+
+## Post-deployment checklist
+
+- [ ] Change all seeded passwords; remove accounts you don't need.
+- [ ] Confirm the site loads over `https://` (not `http://`).
+- [ ] `BIOBANK_SECURE_COOKIE=1` is set (both options above do this).
+- [ ] Schedule a backup of the SQLite database.
+- [ ] Restrict who can reach ports 80/443 if this is internal-only.
