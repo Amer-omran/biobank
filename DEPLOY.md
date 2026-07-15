@@ -135,22 +135,28 @@ the included WSGI adapter (`biobank/wsgi.py`).
 3. Go to the **Web** tab → **Add a new web app** → **Manual configuration** →
    pick the latest **Python 3.x**. (Free apps live at `YOURNAME.pythonanywhere.com`.)
 
-4. In the Web tab, click the **WSGI configuration file** link and replace its
-   contents with this (change `YOURNAME` and the password):
+4. In the Web tab, click the **WSGI configuration file** link, **delete all of its
+   contents**, and paste exactly this (only change the password). Keep the
+   `import os, sys` line — the app needs it:
 
    ```python
    import os, sys
 
-   project = "/home/YOURNAME/biobank"
+   # Project folder inside your home directory (handles username casing for you).
+   project = os.path.join(os.path.expanduser("~"), "biobank")
    if project not in sys.path:
        sys.path.insert(0, project)
 
-   os.environ["BIOBANK_DB"] = "/home/YOURNAME/biobank/biobank.db"
+   os.environ["BIOBANK_DB"] = os.path.join(project, "biobank.db")
    os.environ["BIOBANK_SEED_PASSWORD"] = "a-strong-first-run-password"
    os.environ["BIOBANK_SECURE_COOKIE"] = "1"
 
    from biobank.wsgi import application
    ```
+
+   > Using `os.path.expanduser("~")` avoids hardcoding your username, so it works
+   > regardless of letter case. If you see `NameError: name 'sys' is not defined`,
+   > the `import os, sys` line at the top is missing — paste the whole block again.
 
 5. (Optional, faster static files) In the Web tab's **Static files** section add:
    URL `/static/` → Directory `/home/YOURNAME/biobank/biobank/static/`.
