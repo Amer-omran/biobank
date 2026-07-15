@@ -4,7 +4,15 @@ Biobank is a pure-Python app (no third-party packages) that stores everything in
 a single SQLite file. Two supported ways to run it in production, both serving
 over **HTTPS** so login cookies are protected.
 
-You need:
+Choosing an option:
+
+- **No budget / no credit card?** Use **Option C — PythonAnywhere free tier**. It
+  gives you a free `*.pythonanywhere.com` address with HTTPS already set up, keeps
+  your data on persistent storage, and needs no payment card or domain.
+- Have a server (or a few dollars for a small VPS) and want your own domain? Use
+  **Option A** (Docker) or **Option B** (systemd).
+
+Options A and B need:
 
 - A server/VPS with a public IP (any small instance is plenty).
 - A **domain name** (or subdomain) with a DNS `A` record pointing at the server.
@@ -106,6 +114,63 @@ sudo cp /var/lib/biobank/biobank.db /root/biobank-backup-$(date +%F).db
 ```
 
 ---
+
+## Option C — PythonAnywhere free tier (free, no credit card, HTTPS included)
+
+Best when you have **no budget**. The free "Beginner" account needs no payment
+card, gives you `https://YOURNAME.pythonanywhere.com`, and stores files
+persistently (so your SQLite database survives restarts). It runs the app through
+the included WSGI adapter (`biobank/wsgi.py`).
+
+1. Create a free account at <https://www.pythonanywhere.com> (choose the free
+   "Beginner" plan).
+
+2. Open a **Bash console** (Consoles tab) and fetch the code:
+
+   ```bash
+   git clone https://github.com/Amer-omran/biobank.git
+   cd biobank && git checkout claude/try-now-5sg4z8      # omit once merged into main
+   ```
+
+3. Go to the **Web** tab → **Add a new web app** → **Manual configuration** →
+   pick the latest **Python 3.x**. (Free apps live at `YOURNAME.pythonanywhere.com`.)
+
+4. In the Web tab, click the **WSGI configuration file** link and replace its
+   contents with this (change `YOURNAME` and the password):
+
+   ```python
+   import os, sys
+
+   project = "/home/YOURNAME/biobank"
+   if project not in sys.path:
+       sys.path.insert(0, project)
+
+   os.environ["BIOBANK_DB"] = "/home/YOURNAME/biobank/biobank.db"
+   os.environ["BIOBANK_SEED_PASSWORD"] = "a-strong-first-run-password"
+   os.environ["BIOBANK_SECURE_COOKIE"] = "1"
+
+   from biobank.wsgi import application
+   ```
+
+5. (Optional, faster static files) In the Web tab's **Static files** section add:
+   URL `/static/` → Directory `/home/YOURNAME/biobank/biobank/static/`.
+
+6. Click the big green **Reload** button, then open
+   `https://YOURNAME.pythonanywhere.com` and sign in as `admin1` with the seed
+   password. **Change all passwords** from the "My account" panel.
+
+Notes for the free tier:
+
+- HTTPS is already configured on the `pythonanywhere.com` address — nothing to set up.
+- Your data is the file `/home/YOURNAME/biobank/biobank.db`; download it from the
+  **Files** tab to back up.
+- Free web apps ask you to click a "Run until 3 months from now" button every three
+  months to stay active — just log in and click it.
+- After pulling code updates (`git pull`), hit **Reload** in the Web tab.
+
+Truly free alternative with more power (but a credit card is required at signup):
+**Oracle Cloud "Always Free"** gives a small VM forever — then follow Option A or B
+on it.
 
 ## Configuration reference
 

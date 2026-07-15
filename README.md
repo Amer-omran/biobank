@@ -57,9 +57,13 @@ Open <http://127.0.0.1:8000>, sign in as `admin1` (full access) or `user1`
 ## Deploying to a server
 
 To run Biobank on a server for your team (with HTTPS), see **[DEPLOY.md](DEPLOY.md)**.
-It covers a one-command **Docker Compose** setup with automatic Let's Encrypt
-certificates (`Dockerfile`, `docker-compose.yml`, `Caddyfile`) and a **systemd**
-option for a plain VPS (`deploy/biobank.service`).
+It covers three paths:
+
+- **Free, no credit card:** the **PythonAnywhere** free tier via the included WSGI
+  adapter (`biobank/wsgi.py`) — a free HTTPS address with persistent storage.
+- **Docker Compose** with automatic Let's Encrypt certificates (`Dockerfile`,
+  `docker-compose.yml`, `Caddyfile`).
+- **systemd** on a plain VPS behind a reverse proxy (`deploy/biobank.service`).
 
 Accounts are seeded only when the database has no users. Change the seed password
 before first run, or manage users directly in the database.
@@ -98,6 +102,7 @@ biobank/
   importer.py       CSV + native .xlsx parsing (stdlib only)
   exporter.py       native .xlsx writing (stdlib only)
   server.py         HTTP server: auth, RBAC, audit log, API, static files
+  wsgi.py           WSGI adapter (for hosts like PythonAnywhere)
   static/
     index.html      single-page web UI
     app.js          UI logic (talks to the REST API)

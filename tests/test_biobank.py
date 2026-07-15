@@ -391,6 +391,75 @@ class ApiTests(unittest.TestCase):
         self.assertIn("barcode", opts["restricted"])
 
 
+class WsgiTests(unittest.TestCase):
+    """Exercise the WSGI adapter over a live wsgiref server."""
+
+    @classmethod
+    def setUpClass(cls):
+        from wsgiref.simple_server import make_server as make_wsgi_server
+        from biobank.wsgi import make_app
+
+        cls.tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        cls.tmp.close()
+        app = make_app(db_path=cls.tmp.name, seed_password=SEED_PW, secure_cookies=True)
+        cls.httpd = make_wsgi_server("127.0.0.1", 0, app)
+        cls.port = cls.httpd.server_address[1]
+        cls.thread = threading.Thread(target=cls.httpd.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+        cls.httpd.server_close()
+        os.unlink(cls.tmp.name)
+
+    def _req(self, method, path, body=None, token=None):
+        url = f"http://127.0.0.1:{self.port}{path}"
+        data = json.dumps(body).encode() if body is not None else None
+        req = urllib.request.Request(url, data=data, method=method)
+        if body is not None:
+            req.add_header("Content-Type", "application/json")
+        if token:
+            req.add_header("Cookie", f"bb_session={token}")
+        try:
+            with urllib.request.urlopen(req) as resp:
+                return resp.status, json.loads(resp.read()), resp.headers.get("Set-Cookie", "")
+        except HTTPError as e:
+            return e.code, json.loads(e.read()), e.headers.get("Set-Cookie", "")
+
+    def _login(self, username, password=SEED_PW):
+        status, _, cookie = self._req("POST", "/api/login", {"username": username, "password": password})
+        self.assertEqual(status, 200)
+        self.assertIn("Secure", cookie)  # secure_cookies=True honored
+        return cookie.split("bb_session=")[1].split(";")[0]
+
+    def test_wsgi_auth_and_rbac(self):
+        # unauthenticated
+        self.assertEqual(self._req("GET", "/api/samples")[0], 401)
+        # staff create strips restricted fields
+        staff = self._login("user1")
+        status, rec, _ = self._req("POST", "/api/samples", {
+            "area": "Riyadh", "animal_type": "Cattle", "sample_type": "blood",
+            "department": "virology", "barcode": "NO"}, token=staff)
+        self.assertEqual(status, 201)
+        self.assertIsNone(rec["barcode"])
+        # staff blocked from admin routes
+        self.assertEqual(self._req("GET", "/api/audit", token=staff)[0], 403)
+        self.assertEqual(self._req("DELETE", f"/api/samples/{rec['id']}", token=staff)[0], 403)
+        # admin can edit + audit records the change
+        admin = self._login("admin1")
+        status, upd, _ = self._req("PATCH", f"/api/samples/{rec['id']}",
+                                   {"barcode": "BC-1"}, token=admin)
+        self.assertEqual(status, 200)
+        self.assertEqual(upd["barcode"], "BC-1")
+        status, audit, _ = self._req("GET", "/api/audit", token=admin)
+        self.assertTrue(any(e["action"] == "update" for e in audit["audit"]))
+
+    def test_wsgi_serves_ui(self):
+        with urllib.request.urlopen(f"http://127.0.0.1:{self.port}/") as resp:
+            self.assertIn("Biobank", resp.read().decode())
+
+
 class SeedTests(unittest.TestCase):
     def test_seed_only_once(self):
         db = Database(":memory:")
