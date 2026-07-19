@@ -102,6 +102,7 @@ function renderRows(samples) {
     <td>${s.department ? `<span class="dept ${esc(s.department)}">${esc(s.department)}</span>` : "—"}</td>
     ${cell(s.barcode)}<td class="muted">${s.created_by ? esc(s.created_by) : "—"}</td>
     <td style="text-align:right; white-space:nowrap">
+      <button class="x" data-receipt="${s.id}" title="Reception form (PDF)">📄</button>
       <button class="x" data-edit="${s.id}" title="Edit">✎</button>
       ${isAdmin ? `<button class="x" data-del="${s.id}" title="Delete">✕</button>` : ""}</td>
   </tr>`).join("") : `<tr><td colspan="19" class="empty">No records${
@@ -229,6 +230,7 @@ $("#cancel-edit").addEventListener("click", cancelEdit);
 $("#rec-form").addEventListener("submit", async e => {
   e.preventDefault();
   const err = $("#rec-err"); err.textContent = "";
+  $("#rec-msg").innerHTML = "";
   const body = {};
   new FormData(e.target).forEach((v, k) => {
     const val = String(v).trim();
@@ -236,13 +238,21 @@ $("#rec-form").addEventListener("submit", async e => {
     if (editingId || val !== "") body[k] = val;
   });
   try {
-    if (editingId) await api("/api/samples/" + editingId, { method: "PATCH", body });
-    else await api("/api/samples", { method: "POST", body });
-    cancelEdit();
+    if (editingId) {
+      await api("/api/samples/" + editingId, { method: "PATCH", body });
+      cancelEdit();
+    } else {
+      const created = await api("/api/samples", { method: "POST", body });
+      e.target.reset();
+      $("#rec-msg").innerHTML = `Saved ✓ &nbsp;<a href="/api/samples/${created.id}/receipt.pdf"` +
+        ` target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">📄 Reception form (PDF)</a>`;
+    }
     await reloadData();
   } catch (ex) { err.textContent = ex.message; }
 });
 $("#rows").addEventListener("click", async e => {
+  const receipt = e.target.closest("[data-receipt]");
+  if (receipt) { window.open("/api/samples/" + receipt.dataset.receipt + "/receipt.pdf", "_blank"); return; }
   const edit = e.target.closest("[data-edit]");
   if (edit) {
     const s = lastSamples.find(x => String(x.id) === edit.dataset.edit);

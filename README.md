@@ -26,6 +26,9 @@ so it runs on any stock Python 3.9+ install.
   Excel date serials, and maps many column-name spellings.
 - **Edit and delete** records (staff edits leave the restricted fields intact),
   **CSV export** of the current view, and **self-service password change**.
+- **Sample reception form (PDF)** auto-filled from each record — offered right
+  after a sample is saved and from a per-row button (generated with the standard
+  library, no PDF packages).
 - **Admin-only** (admin1/admin2): an **audit log** recording every create, edit,
   delete, import and export, plus native **Excel (`.xlsx`) export** of the current
   view (written with the standard library — no third-party packages).
@@ -82,6 +85,7 @@ All `/api` routes except `/health` and `/login` require the session cookie set b
 | `GET`    | `/api/samples`        | auth   | List samples (`?department=`, `?search=`).|
 | `POST`   | `/api/samples`        | auth   | Create a sample (staff: restricted fields ignored). |
 | `PATCH`  | `/api/samples/{id}`   | auth   | Edit a sample (staff: restricted fields left intact). |
+| `GET`    | `/api/samples/{id}/receipt.pdf` | auth | Reception form PDF for a sample.       |
 | `DELETE` | `/api/samples/{id}`   | admin  | Delete a sample.                         |
 | `POST`   | `/api/change-password`| auth   | Change your own password.                |
 | `POST`   | `/api/import`         | admin  | Import `.xlsx`/`.csv` (`?filename=`).    |
@@ -101,6 +105,7 @@ biobank/
   db.py             SQLite layer: users, sessions, samples, stats
   importer.py       CSV + native .xlsx parsing (stdlib only)
   exporter.py       native .xlsx writing (stdlib only)
+  pdf.py            sample reception form PDF writer (stdlib only)
   server.py         HTTP server: auth, RBAC, audit log, API, static files
   wsgi.py           WSGI adapter (for hosts like PythonAnywhere)
   static/

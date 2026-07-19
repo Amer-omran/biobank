@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from biobank.db import Database, hash_password
 from biobank.exporter import build_xlsx
 from biobank.importer import normalize_date, parse_csv, parse_xlsx, rows_to_records
+from biobank.pdf import build_receipt_pdf
 from biobank.server import make_server, seed_users
 
 SEED_PW = "Test@123"
@@ -309,6 +310,22 @@ class ApiTests(unittest.TestCase):
         update_entry = next(e for e in body["audit"] if e["action"] == "update" and e["sample_id"] == rec["id"])
         self.assertIn("sample_type", update_entry["summary"])
 
+    def test_receipt_pdf(self):
+        token = self._login("user1")  # staff can print a reception form
+        _, rec, _ = self._req("POST", "/api/samples", {
+            "area": "Riyadh", "animal_type": "Cattle", "sample_type": "blood",
+            "department": "virology"}, token=token)
+        # unauthenticated is rejected
+        self.assertEqual(self._req("GET", f"/api/samples/{rec['id']}/receipt.pdf")[0], 401)
+        # authenticated download is a real PDF
+        url = f"http://127.0.0.1:{self.port}/api/samples/{rec['id']}/receipt.pdf"
+        req = urllib.request.Request(url, headers={"Cookie": f"bb_session={token}"})
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.headers.get("Content-Type"), "application/pdf")
+            body = resp.read()
+        self.assertTrue(body.startswith(b"%PDF"))
+        self.assertTrue(body.rstrip().endswith(b"%%EOF"))
+
     def test_xlsx_export_endpoint_admin_only(self):
         admin = self._login("admin1")
         self._req("POST", "/api/samples", {
@@ -455,9 +472,30 @@ class WsgiTests(unittest.TestCase):
         status, audit, _ = self._req("GET", "/api/audit", token=admin)
         self.assertTrue(any(e["action"] == "update" for e in audit["audit"]))
 
+    def test_wsgi_receipt_pdf(self):
+        token = self._login("admin1")
+        status, rec, _ = self._req("POST", "/api/samples", {
+            "area": "Tabuk", "animal_type": "Falcon", "sample_type": "swabs",
+            "department": "virology"}, token=token)
+        url = f"http://127.0.0.1:{self.port}/api/samples/{rec['id']}/receipt.pdf"
+        req = urllib.request.Request(url, headers={"Cookie": f"bb_session={token}"})
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.headers.get("Content-Type"), "application/pdf")
+            self.assertTrue(resp.read().startswith(b"%PDF"))
+
     def test_wsgi_serves_ui(self):
         with urllib.request.urlopen(f"http://127.0.0.1:{self.port}/") as resp:
             self.assertIn("Biobank", resp.read().decode())
+
+
+class PdfTests(unittest.TestCase):
+    def test_build_receipt_is_valid_pdf(self):
+        pdf = build_receipt_pdf({
+            "id": 42, "area": "Riyadh", "animal_type": "Cattle", "sample_type": "blood",
+            "department": "virology", "storage_method": "-80 °C", "created_by": "user1"})
+        self.assertTrue(pdf.startswith(b"%PDF"))
+        self.assertTrue(pdf.rstrip().endswith(b"%%EOF"))
+        self.assertIn(b"Receipt #42", pdf)
 
 
 class SeedTests(unittest.TestCase):

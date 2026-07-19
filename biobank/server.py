@@ -31,6 +31,7 @@ from .db import Database
 from .exporter import build_xlsx
 from .importer import parse_file
 from .options import FIELD_LABELS, OPTIONS, RESTRICTED_FIELDS, SAMPLE_FIELDS
+from .pdf import build_receipt_pdf
 
 COOKIE_NAME = "bb_session"
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
@@ -74,10 +75,11 @@ class BiobankHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _send_bytes(self, data: bytes, content_type: str, filename: str) -> None:
+    def _send_bytes(self, data: bytes, content_type: str, filename: str,
+                    disposition: str = "attachment") -> None:
         self.send_response(200)
         self.send_header("Content-Type", content_type)
-        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.send_header("Content-Disposition", f'{disposition}; filename="{filename}"')
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -303,6 +305,14 @@ class BiobankHandler(BaseHTTPRequestHandler):
             )
         self._send_json(200 if ok else 404, {"deleted": ok})
 
+    def h_receipt(self, match: "re.Match[str]", user: Any) -> None:
+        sample = self.db.get_sample(int(match.group("id")))
+        if sample is None:
+            self._send_json(404, {"error": "sample not found"})
+            return
+        self._send_bytes(build_receipt_pdf(sample), "application/pdf",
+                         f"sample-{sample['id']}-receipt.pdf", disposition="inline")
+
     def h_audit(self, match: "re.Match[str]", user: Any) -> None:
         self._send_json(200, {"audit": self.db.list_audit()})
 
@@ -372,6 +382,7 @@ def _build_routes() -> list[Route]:
         ("DELETE", p(r"/api/users/(?P<id>\d+)"), "h_delete_user", True),
         ("GET", p(r"/api/samples"), "h_list_samples", False),
         ("POST", p(r"/api/samples"), "h_create_sample", False),
+        ("GET", p(r"/api/samples/(?P<id>\d+)/receipt\.pdf"), "h_receipt", False),
         ("PATCH", p(r"/api/samples/(?P<id>\d+)"), "h_update_sample", False),
         ("DELETE", p(r"/api/samples/(?P<id>\d+)"), "h_delete_sample", True),
         ("POST", p(r"/api/change-password"), "h_change_password", False),

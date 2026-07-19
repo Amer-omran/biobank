@@ -28,6 +28,7 @@ from .db import Database
 from .exporter import build_xlsx
 from .importer import parse_file
 from .options import FIELD_LABELS, OPTIONS, RESTRICTED_FIELDS, SAMPLE_FIELDS
+from .pdf import build_receipt_pdf
 from .server import COOKIE_NAME, STATIC_DIR, seed_users
 
 _STATUS = {
@@ -79,10 +80,10 @@ def make_app(
             return json_resp(404, {"error": "not found"})
         return _STATUS[200], [("Content-Type", ctype), ("Content-Length", str(len(body)))], body
 
-    def bytes_resp(data: bytes, ctype: str, filename: str):
+    def bytes_resp(data: bytes, ctype: str, filename: str, disposition: str = "attachment"):
         headers = [
             ("Content-Type", ctype),
-            ("Content-Disposition", f'attachment; filename="{filename}"'),
+            ("Content-Disposition", f'{disposition}; filename="{filename}"'),
             ("Content-Length", str(len(data))),
         ]
         return _STATUS[200], headers, data
@@ -213,6 +214,13 @@ def make_app(
                      f"imported {added} record(s) from {filename}" + (f", {skipped} skipped" if skipped else ""))
         return json_resp(200, {"added": added, "skipped": skipped, "parsed": len(records)})
 
+    def h_receipt(m, user, ctx):
+        sample = db.get_sample(int(m.group("id")))
+        if sample is None:
+            return json_resp(404, {"error": "sample not found"})
+        return bytes_resp(build_receipt_pdf(sample), "application/pdf",
+                          f"sample-{sample['id']}-receipt.pdf", disposition="inline")
+
     def h_audit(m, user, ctx):
         return json_resp(200, {"audit": db.list_audit()})
 
@@ -267,6 +275,7 @@ def make_app(
         ("GET", re.compile(r"/api/options"), h_options, True, False),
         ("GET", re.compile(r"/api/samples"), h_list_samples, True, False),
         ("POST", re.compile(r"/api/samples"), h_create_sample, True, False),
+        ("GET", re.compile(r"/api/samples/(?P<id>\d+)/receipt\.pdf"), h_receipt, True, False),
         ("PATCH", re.compile(r"/api/samples/(?P<id>\d+)"), h_update_sample, True, False),
         ("DELETE", re.compile(r"/api/samples/(?P<id>\d+)"), h_delete_sample, True, True),
         ("POST", re.compile(r"/api/change-password"), h_change_password, True, False),
