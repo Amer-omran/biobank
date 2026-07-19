@@ -58,6 +58,11 @@
   .tbtn { border:1px solid var(--line); background:var(--panel); color:var(--txt-mut);
     width:34px; height:34px; border-radius:9px; cursor:pointer; font-size:15px; display:grid; place-items:center; }
   .tbtn:hover { color:var(--txt); border-color:var(--accent); }
+  /* larger, more prominent sign-out button */
+  #logout { width:44px; height:44px; color:var(--accent);
+    border-color:color-mix(in srgb, var(--accent) 45%, var(--line)); }
+  #logout svg { width:26px; height:26px; display:block; }
+  #logout:hover { background:var(--accent-soft); color:var(--accent); border-color:var(--accent); }
 
   h1.page { font-size:22px; letter-spacing:-.02em; margin:30px 0 4px; text-wrap:balance; }
   .lede { color:var(--txt-mut); font-size:14px; margin:0 0 20px; max-width:70ch; }
@@ -209,7 +214,14 @@
     <div class="brand"><b>Biobank</b><span>Animal Sample Registry</span></div>
     <div class="spacer"></div>
     <div class="userchip auth-only" id="userchip"></div>
-    <button class="tbtn auth-only" id="logout" title="Sign out" aria-label="Sign out">⎋</button>
+    <button class="tbtn auth-only" id="logout" title="Sign out" aria-label="Sign out">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M15.5 6 A 8 8 0 1 0 15.5 18"/>
+        <line x1="9" y1="12" x2="21.5" y2="12"/>
+        <polyline points="17.5 8 21.5 12 17.5 16"/>
+      </svg>
+    </button>
     <button class="tbtn" id="theme" title="Toggle theme" aria-label="Toggle theme">◐</button>
   </div>
 </header>
