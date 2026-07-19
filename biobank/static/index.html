@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🧬</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230891b2'/><path d='M22 12h20' stroke='white' stroke-width='5' stroke-linecap='round'/><rect x='24.5' y='14' width='15' height='40' rx='7.5' fill='none' stroke='white' stroke-width='3.5'/><path d='M24.5 37a7.5 7.5 0 0 0 15 0v9a7.5 7.5 0 0 1-15 0Z' fill='white'/></svg>">
 <title>Biobank — Sample Registry</title>
 <style>
   :root {
@@ -51,6 +51,7 @@
   .hbar { max-width:1200px; margin:0 auto; padding:14px 24px; display:flex; align-items:center; gap:14px; }
   .mark { width:34px; height:34px; border-radius:9px; flex:none; display:grid; place-items:center;
     background:var(--accent); color:var(--accent-ink); font-weight:700; box-shadow:var(--shadow); }
+  .mark svg { width:70%; height:70%; display:block; }
   .brand { display:flex; flex-direction:column; line-height:1.15; }
   .brand b { font-size:15px; letter-spacing:-.01em; }
   .brand span { font-size:11.5px; color:var(--txt-faint); text-transform:uppercase; letter-spacing:.09em; }
@@ -185,7 +186,12 @@
 
 <div id="login">
   <form class="login-card" id="login-form" novalidate>
-    <div class="mark">🧬</div>
+    <div class="mark"><svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <path d="M22 9h20" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+      <rect x="24.5" y="11" width="15" height="44" rx="7.5" fill="none" stroke="currentColor" stroke-width="3.5"/>
+      <path d="M24.5 36a7.5 7.5 0 0 0 15 0v11.5a7.5 7.5 0 0 1-15 0Z" fill="currentColor"/>
+      <circle cx="32" cy="43" r="1.8" fill="var(--accent)"/>
+      <circle cx="30" cy="49" r="1.3" fill="var(--accent)"/></svg></div>
     <h2>Biobank sign-in</h2>
     <p class="sub">Sign in to access the sample registry.</p>
     <div class="field">
@@ -210,7 +216,12 @@
 
 <header>
   <div class="hbar">
-    <div class="mark">🧬</div>
+    <div class="mark"><svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <path d="M22 9h20" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+      <rect x="24.5" y="11" width="15" height="44" rx="7.5" fill="none" stroke="currentColor" stroke-width="3.5"/>
+      <path d="M24.5 36a7.5 7.5 0 0 0 15 0v11.5a7.5 7.5 0 0 1-15 0Z" fill="currentColor"/>
+      <circle cx="32" cy="43" r="1.8" fill="var(--accent)"/>
+      <circle cx="30" cy="49" r="1.3" fill="var(--accent)"/></svg></div>
     <div class="brand"><b>Biobank</b><span>Animal Sample Registry</span></div>
     <div class="spacer"></div>
     <div class="userchip auth-only" id="userchip"></div>
