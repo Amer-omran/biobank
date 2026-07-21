@@ -18,12 +18,41 @@ from urllib.error import HTTPError
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from biobank.db import Database, hash_password
+from biobank.docx_form import build_form_docx, fill_docx
 from biobank.exporter import build_xlsx
 from biobank.importer import normalize_date, parse_csv, parse_xlsx, rows_to_records
 from biobank.pdf import build_receipt_pdf
 from biobank.server import make_server, seed_users
 
 SEED_PW = "Test@123"
+
+
+def _mini_docx() -> bytes:
+    """A tiny valid .docx with a Field/Information table for filler tests."""
+    doc = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
+        '<w:tbl>'
+        '<w:tr><w:tc><w:p><w:r><w:t>Field</w:t></w:r></w:p></w:tc>'
+        '<w:tc><w:p><w:r><w:t>Information</w:t></w:r></w:p></w:tc></w:tr>'
+        '<w:tr><w:tc><w:p><w:r><w:t>Sample Type</w:t></w:r></w:p></w:tc><w:tc><w:p/></w:tc></w:tr>'
+        '<w:tr><w:tc><w:p><w:r><w:t>Storage Barcode</w:t></w:r></w:p></w:tc><w:tc><w:p/></w:tc></w:tr>'
+        '</w:tbl></w:body></w:document>'
+    )
+    ctypes = ('<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+              '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+              '<Default Extension="xml" ContentType="application/xml"/>'
+              '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+              '</Types>')
+    rels = ('<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
+            '</Relationships>')
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("[Content_Types].xml", ctypes)
+        z.writestr("_rels/.rels", rels)
+        z.writestr("word/document.xml", doc)
+    return buf.getvalue()
 
 
 # ----------------------------------------------------------------------------
@@ -326,6 +355,30 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(body.startswith(b"%PDF"))
         self.assertTrue(body.rstrip().endswith(b"%%EOF"))
 
+    def test_form_docx_endpoint(self):
+        token = self._login("user1")
+        _, rec, _ = self._req("POST", "/api/samples", {
+            "area": "Riyadh", "animal_type": "Cattle", "sample_type": "blood",
+            "department": "virology"}, token=token)
+        # not configured -> 503
+        old = os.environ.pop("BIOBANK_FORM_TEMPLATE", None)
+        self.assertEqual(self._req("GET", f"/api/samples/{rec['id']}/form.docx", token=token)[0], 503)
+        # configured -> a real .docx (zip) is returned
+        tf = tempfile.NamedTemporaryFile(suffix=".docx", delete=False)
+        tf.write(_mini_docx()); tf.close()
+        os.environ["BIOBANK_FORM_TEMPLATE"] = tf.name
+        try:
+            url = f"http://127.0.0.1:{self.port}/api/samples/{rec['id']}/form.docx"
+            req = urllib.request.Request(url, headers={"Cookie": f"bb_session={token}"})
+            with urllib.request.urlopen(req) as resp:
+                self.assertIn("wordprocessingml", resp.headers.get("Content-Type", ""))
+                self.assertEqual(resp.read()[:2], b"PK")
+        finally:
+            os.environ.pop("BIOBANK_FORM_TEMPLATE", None)
+            if old is not None:
+                os.environ["BIOBANK_FORM_TEMPLATE"] = old
+            os.unlink(tf.name)
+
     def test_xlsx_export_endpoint_admin_only(self):
         admin = self._login("admin1")
         self._req("POST", "/api/samples", {
@@ -486,6 +539,24 @@ class WsgiTests(unittest.TestCase):
     def test_wsgi_serves_ui(self):
         with urllib.request.urlopen(f"http://127.0.0.1:{self.port}/") as resp:
             self.assertIn("Biobank", resp.read().decode())
+
+
+class DocxFormTests(unittest.TestCase):
+    def test_fill_populates_matching_cells(self):
+        out = fill_docx(_mini_docx(), {"id": 3, "sample_type": "blood", "barcode": "BC-9"})
+        self.assertTrue(zipfile.is_zipfile(io.BytesIO(out)))
+        doc = zipfile.ZipFile(io.BytesIO(out)).read("word/document.xml").decode()
+        self.assertIn("blood", doc)          # Sample Type filled
+        self.assertIn("BC-9", doc)           # Storage Barcode filled
+
+    def test_build_form_requires_template(self):
+        old = os.environ.pop("BIOBANK_FORM_TEMPLATE", None)
+        try:
+            with self.assertRaises(FileNotFoundError):
+                build_form_docx({"id": 1})
+        finally:
+            if old is not None:
+                os.environ["BIOBANK_FORM_TEMPLATE"] = old
 
 
 class PdfTests(unittest.TestCase):

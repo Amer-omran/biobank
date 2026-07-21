@@ -28,6 +28,7 @@ from typing import Any, Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
 from .db import Database
+from .docx_form import build_form_docx
 from .exporter import build_xlsx
 from .importer import parse_file
 from .options import FIELD_LABELS, OPTIONS, RESTRICTED_FIELDS, SAMPLE_FIELDS
@@ -313,6 +314,22 @@ class BiobankHandler(BaseHTTPRequestHandler):
         self._send_bytes(build_receipt_pdf(sample), "application/pdf",
                          f"sample-{sample['id']}-receipt.pdf", disposition="inline")
 
+    def h_form(self, match: "re.Match[str]", user: Any) -> None:
+        sample = self.db.get_sample(int(match.group("id")))
+        if sample is None:
+            self._send_json(404, {"error": "sample not found"})
+            return
+        try:
+            data = build_form_docx(sample)
+        except FileNotFoundError:
+            self._send_json(503, {"error": "the Word form template is not configured on the server"})
+            return
+        self._send_bytes(
+            data,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            f"sample-{sample['id']}-storage-form.docx",
+        )
+
     def h_audit(self, match: "re.Match[str]", user: Any) -> None:
         self._send_json(200, {"audit": self.db.list_audit()})
 
@@ -383,6 +400,7 @@ def _build_routes() -> list[Route]:
         ("GET", p(r"/api/samples"), "h_list_samples", False),
         ("POST", p(r"/api/samples"), "h_create_sample", False),
         ("GET", p(r"/api/samples/(?P<id>\d+)/receipt\.pdf"), "h_receipt", False),
+        ("GET", p(r"/api/samples/(?P<id>\d+)/form\.docx"), "h_form", False),
         ("PATCH", p(r"/api/samples/(?P<id>\d+)"), "h_update_sample", False),
         ("DELETE", p(r"/api/samples/(?P<id>\d+)"), "h_delete_sample", True),
         ("POST", p(r"/api/change-password"), "h_change_password", False),

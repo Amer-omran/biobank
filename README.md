@@ -29,6 +29,9 @@ so it runs on any stock Python 3.9+ install.
 - **Sample reception form (PDF)** auto-filled from each record — offered right
   after a sample is saved and from a per-row button (generated with the standard
   library, no PDF packages).
+- **Your own Word form, auto-filled**: point `BIOBANK_FORM_TEMPLATE` at a `.docx`
+  storage-request form and each sample can be downloaded as that exact form with
+  its fields populated (stdlib `zipfile`/`xml`, template kept out of the repo).
 - **Admin-only** (admin1/admin2): an **audit log** recording every create, edit,
   delete, import and export, plus native **Excel (`.xlsx`) export** of the current
   view (written with the standard library — no third-party packages).
@@ -86,6 +89,7 @@ All `/api` routes except `/health` and `/login` require the session cookie set b
 | `POST`   | `/api/samples`        | auth   | Create a sample (staff: restricted fields ignored). |
 | `PATCH`  | `/api/samples/{id}`   | auth   | Edit a sample (staff: restricted fields left intact). |
 | `GET`    | `/api/samples/{id}/receipt.pdf` | auth | Reception form PDF for a sample.       |
+| `GET`    | `/api/samples/{id}/form.docx`   | auth | Your Word form filled for a sample (needs `BIOBANK_FORM_TEMPLATE`). |
 | `DELETE` | `/api/samples/{id}`   | admin  | Delete a sample.                         |
 | `POST`   | `/api/change-password`| auth   | Change your own password.                |
 | `POST`   | `/api/import`         | admin  | Import `.xlsx`/`.csv` (`?filename=`).    |
@@ -106,6 +110,7 @@ biobank/
   importer.py       CSV + native .xlsx parsing (stdlib only)
   exporter.py       native .xlsx writing (stdlib only)
   pdf.py            sample reception form PDF writer (stdlib only)
+  docx_form.py      fills an external Word storage-request form (stdlib only)
   server.py         HTTP server: auth, RBAC, audit log, API, static files
   wsgi.py           WSGI adapter (for hosts like PythonAnywhere)
   static/

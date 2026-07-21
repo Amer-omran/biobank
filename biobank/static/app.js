@@ -43,6 +43,21 @@ async function api(path, { method = "GET", body, raw } = {}) {
   return data;
 }
 
+// Download the auto-filled Word storage form for a sample (shows a message on error).
+async function downloadForm(id) {
+  const msg = $("#rec-msg");
+  try {
+    const res = await fetch("/api/samples/" + id + "/form.docx");
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "sample-" + id + "-storage-form.docx"; a.click(); URL.revokeObjectURL(a.href);
+  } catch (ex) {
+    msg.className = "import-msg bad"; msg.textContent = "Word form: " + ex.message;
+  }
+}
+
 // ---- build the entry form --------------------------------------------------
 function buildForm() {
   $("#fgrid").innerHTML = FIELD_SPEC.map(f => {
@@ -103,6 +118,7 @@ function renderRows(samples) {
     ${cell(s.barcode)}<td class="muted">${s.created_by ? esc(s.created_by) : "—"}</td>
     <td style="text-align:right; white-space:nowrap">
       <button class="x" data-receipt="${s.id}" title="Reception form (PDF)">📄</button>
+      <button class="x" data-form="${s.id}" title="Storage request form (Word)">📝</button>
       <button class="x" data-edit="${s.id}" title="Edit">✎</button>
       ${isAdmin ? `<button class="x" data-del="${s.id}" title="Delete">✕</button>` : ""}</td>
   </tr>`).join("") : `<tr><td colspan="19" class="empty">No records${
@@ -226,6 +242,10 @@ function cancelEdit() {
   $("#rec-err").textContent = "";
 }
 $("#cancel-edit").addEventListener("click", cancelEdit);
+$("#rec-msg").addEventListener("click", e => {
+  const a = e.target.closest("[data-form-link]");
+  if (a) { e.preventDefault(); downloadForm(a.dataset.formLink); }
+});
 
 $("#rec-form").addEventListener("submit", async e => {
   e.preventDefault();
@@ -244,8 +264,11 @@ $("#rec-form").addEventListener("submit", async e => {
     } else {
       const created = await api("/api/samples", { method: "POST", body });
       e.target.reset();
-      $("#rec-msg").innerHTML = `Saved ✓ &nbsp;<a href="/api/samples/${created.id}/receipt.pdf"` +
-        ` target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">📄 Reception form (PDF)</a>`;
+      const lk = "color:var(--accent);font-weight:600;text-decoration:none";
+      $("#rec-msg").className = "import-msg";
+      $("#rec-msg").innerHTML = `Saved ✓ &nbsp;` +
+        `<a href="/api/samples/${created.id}/receipt.pdf" target="_blank" style="${lk}">📄 PDF</a>` +
+        ` &nbsp;·&nbsp; <a href="#" data-form-link="${created.id}" style="${lk}">📝 Storage form (Word)</a>`;
     }
     await reloadData();
   } catch (ex) { err.textContent = ex.message; }
@@ -253,6 +276,8 @@ $("#rec-form").addEventListener("submit", async e => {
 $("#rows").addEventListener("click", async e => {
   const receipt = e.target.closest("[data-receipt]");
   if (receipt) { window.open("/api/samples/" + receipt.dataset.receipt + "/receipt.pdf", "_blank"); return; }
+  const formBtn = e.target.closest("[data-form]");
+  if (formBtn) { downloadForm(formBtn.dataset.form); return; }
   const edit = e.target.closest("[data-edit]");
   if (edit) {
     const s = lastSamples.find(x => String(x.id) === edit.dataset.edit);

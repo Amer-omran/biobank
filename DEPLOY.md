@@ -165,6 +165,15 @@ the included WSGI adapter (`biobank/wsgi.py`).
    `https://YOURNAME.pythonanywhere.com` and sign in as `admin1` with the seed
    password. **Change all passwords** from the "My account" panel.
 
+7. *(Optional)* To enable the auto-filled **Word storage-request form**: upload
+   your `.docx` template via the **Files** tab to a folder outside the repo (e.g.
+   `/home/YOURNAME/biobank-form/storage_request_form.docx` so `git pull` never
+   touches it), then add this line to the WSGI file and **Reload**:
+
+   ```python
+   os.environ["BIOBANK_FORM_TEMPLATE"] = "/home/YOURNAME/biobank-form/storage_request_form.docx"
+   ```
+
 Notes for the free tier:
 
 - HTTPS is already configured on the `pythonanywhere.com` address — nothing to set up.
@@ -187,6 +196,7 @@ on it.
 | `BIOBANK_DB`            | SQLite file path (put it on a persistent volume).             |
 | `BIOBANK_SEED_PASSWORD` | Password for the six seeded accounts — used only on first run. |
 | `BIOBANK_SECURE_COOKIE` | `1` to add the `Secure` flag so cookies require HTTPS. Set behind TLS. |
+| `BIOBANK_FORM_TEMPLATE`  | Path to your Word storage-request form (`.docx`). Set it to enable the per-sample "Storage form (Word)" download; leave unset to disable it. The template is not bundled — keep it outside the repo. |
 
 ## Post-deployment checklist
 

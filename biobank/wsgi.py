@@ -25,6 +25,7 @@ from typing import Any, Callable, Optional
 from urllib.parse import parse_qs
 
 from .db import Database
+from .docx_form import build_form_docx
 from .exporter import build_xlsx
 from .importer import parse_file
 from .options import FIELD_LABELS, OPTIONS, RESTRICTED_FIELDS, SAMPLE_FIELDS
@@ -221,6 +222,20 @@ def make_app(
         return bytes_resp(build_receipt_pdf(sample), "application/pdf",
                           f"sample-{sample['id']}-receipt.pdf", disposition="inline")
 
+    def h_form(m, user, ctx):
+        sample = db.get_sample(int(m.group("id")))
+        if sample is None:
+            return json_resp(404, {"error": "sample not found"})
+        try:
+            data = build_form_docx(sample)
+        except FileNotFoundError:
+            return json_resp(503, {"error": "the Word form template is not configured on the server"})
+        return bytes_resp(
+            data,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            f"sample-{sample['id']}-storage-form.docx",
+        )
+
     def h_audit(m, user, ctx):
         return json_resp(200, {"audit": db.list_audit()})
 
@@ -276,6 +291,7 @@ def make_app(
         ("GET", re.compile(r"/api/samples"), h_list_samples, True, False),
         ("POST", re.compile(r"/api/samples"), h_create_sample, True, False),
         ("GET", re.compile(r"/api/samples/(?P<id>\d+)/receipt\.pdf"), h_receipt, True, False),
+        ("GET", re.compile(r"/api/samples/(?P<id>\d+)/form\.docx"), h_form, True, False),
         ("PATCH", re.compile(r"/api/samples/(?P<id>\d+)"), h_update_sample, True, False),
         ("DELETE", re.compile(r"/api/samples/(?P<id>\d+)"), h_delete_sample, True, True),
         ("POST", re.compile(r"/api/change-password"), h_change_password, True, False),
