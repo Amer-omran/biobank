@@ -17,6 +17,9 @@ const FIELD_SPEC = [
   { name: "concentration", label: "Concentration", mono: true, ph: "120 ng/µl" },
   { name: "disease",       label: "Disease",       list: "dl-disease" },
   { name: "strain",        label: "Strain",        list: "dl-strain" },
+  { name: "isolated",      label: "Isolated?",     select: ["No", "Yes"] },
+  { name: "isolation_date",label: "Isolation date",type: "date", mono: true, cond: true },
+  { name: "passage_number",label: "Passage no.",   mono: true, ph: "e.g. P3", cond: true },
   { name: "department",    label: "Department",    list: "dl-department", req: true },
   { name: "barcode",       label: "Barcode",       mono: true, ph: "BC-000264", restricted: true },
 ];
@@ -73,8 +76,18 @@ function buildForm() {
         (f.type ? ` type="${f.type}"` : "") + (f.step ? ` step="${f.step}"` : "") +
         (f.ph ? ` placeholder="${esc(f.ph)}"` : "") + ` autocomplete="off">`;
     }
-    return `<label class="${cls}"><span>${esc(f.label)}</span>${control}</label>`;
+    return `<label class="${cls}"${f.cond ? ' data-cond="1"' : ""}><span>${esc(f.label)}</span>${control}</label>`;
   }).join("");
+}
+
+// Show the isolation date / passage fields only when "Isolated?" is Yes.
+function updateConditional() {
+  const el = $("#rec-form").elements["isolated"];
+  const show = el && el.value === "Yes";
+  document.querySelectorAll("#fgrid [data-cond]").forEach(lbl => {
+    lbl.style.display = show ? "" : "none";
+    if (!show) { const inp = lbl.querySelector("input, select"); if (inp) inp.value = ""; }
+  });
 }
 
 function fillDatalists(options) {
@@ -114,6 +127,7 @@ function renderRows(samples) {
     ${num(s.storage_date)}${num(s.storage_method)}${num(s.freezer_no)}${num(s.shelf_no)}${num(s.plate_no)}
     ${cell(s.area)}${cell(s.animal_type)}${cell(s.sample_type)}
     ${num(s.quantity_ml)}${cell(s.concentration)}${cell(s.disease)}${cell(s.strain)}
+    <td>${s.isolated ? esc(s.isolated) : "—"}</td>${num(s.isolation_date)}${num(s.passage_number)}
     <td>${s.department ? `<span class="dept ${esc(s.department)}">${esc(s.department)}</span>` : "—"}</td>
     ${cell(s.barcode)}<td class="muted">${s.created_by ? esc(s.created_by) : "—"}</td>
     <td style="text-align:right; white-space:nowrap">
@@ -121,7 +135,7 @@ function renderRows(samples) {
       <button class="x" data-form="${s.id}" title="Storage request form (Word)">📝</button>
       <button class="x" data-edit="${s.id}" title="Edit">✎</button>
       ${isAdmin ? `<button class="x" data-del="${s.id}" title="Delete">✕</button>` : ""}</td>
-  </tr>`).join("") : `<tr><td colspan="19" class="empty">No records${
+  </tr>`).join("") : `<tr><td colspan="22" class="empty">No records${
     searchTerm || deptFilter ? " match your filters" : " yet"}.</td></tr>`;
 }
 
@@ -231,6 +245,7 @@ function startEdit(s) {
   $("#save-btn").textContent = "Update record";
   $("#cancel-edit").hidden = false;
   $("#rec-err").textContent = "";
+  updateConditional();
   form.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 function cancelEdit() {
@@ -240,8 +255,10 @@ function cancelEdit() {
   $("#save-btn").textContent = "Save record";
   $("#cancel-edit").hidden = true;
   $("#rec-err").textContent = "";
+  updateConditional();
 }
 $("#cancel-edit").addEventListener("click", cancelEdit);
+$("#rec-form").addEventListener("change", e => { if (e.target.name === "isolated") updateConditional(); });
 $("#rec-msg").addEventListener("click", e => {
   const a = e.target.closest("[data-form-link]");
   if (a) { e.preventDefault(); downloadForm(a.dataset.formLink); }
@@ -264,6 +281,7 @@ $("#rec-form").addEventListener("submit", async e => {
     } else {
       const created = await api("/api/samples", { method: "POST", body });
       e.target.reset();
+      updateConditional();
       const lk = "color:var(--accent);font-weight:600;text-decoration:none";
       $("#rec-msg").className = "import-msg";
       $("#rec-msg").innerHTML = `Saved ✓ &nbsp;` +
@@ -379,6 +397,7 @@ $("#export-xlsx-btn").addEventListener("click", async () => {
 
 // ---- boot ------------------------------------------------------------------
 buildForm();
+updateConditional();
 (async () => {
   try { const data = await api("/api/me"); me = data.user; applyAuthUI(); await enterApp(); }
   catch { applyAuthUI(); $("#lg-user").focus(); }

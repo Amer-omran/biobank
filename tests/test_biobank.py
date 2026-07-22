@@ -112,6 +112,33 @@ class DatabaseTests(unittest.TestCase):
         self.assertTrue(self.db.delete_sample(r["id"]))
         self.assertFalse(self.db.delete_sample(r["id"]))
 
+    def test_isolation_fields(self):
+        rec = self.db.create_sample({
+            "area": "Riyadh", "animal_type": "Cattle", "sample_type": "blood",
+            "department": "virology", "isolated": "Yes", "isolation_date": "2025-01-15",
+            "passage_number": "P3"})
+        self.assertEqual(rec["isolated"], "Yes")
+        self.assertEqual(rec["isolation_date"], "2025-01-15")
+        self.assertEqual(rec["passage_number"], "P3")
+
+    def test_migration_adds_missing_columns(self):
+        import sqlite3
+        tf = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        tf.close()
+        con = sqlite3.connect(tf.name)
+        con.execute("CREATE TABLE samples (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                    "area TEXT, animal_type TEXT, sample_type TEXT, department TEXT, "
+                    "created_by TEXT, created_at TEXT)")
+        con.commit(); con.close()
+        db = Database(tf.name)   # opening runs the migration
+        cols = {row[1] for row in db.conn.execute("PRAGMA table_info(samples)").fetchall()}
+        for f in ("isolated", "isolation_date", "passage_number", "barcode", "freezer_no", "storage_method"):
+            self.assertIn(f, cols)
+        rec = db.create_sample({"area": "X", "animal_type": "Y", "sample_type": "Z",
+                                "department": "virology", "isolated": "Yes", "passage_number": "P2"})
+        self.assertEqual(rec["passage_number"], "P2")
+        db.close(); os.unlink(tf.name)
+
 
 # ----------------------------------------------------------------------------
 # Importer

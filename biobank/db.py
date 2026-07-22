@@ -67,6 +67,9 @@ CREATE TABLE IF NOT EXISTS samples (
     concentration TEXT,
     disease       TEXT,
     strain        TEXT,
+    isolated      TEXT,
+    isolation_date TEXT,
+    passage_number TEXT,
     department    TEXT NOT NULL,
     barcode       TEXT,
     created_by    TEXT,
@@ -113,8 +116,18 @@ class Database:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.executescript(SCHEMA)
+        self._migrate_samples()
         self.conn.commit()
         self._lock = threading.RLock()
+
+    def _migrate_samples(self) -> None:
+        """Add any sample columns missing from an older database, in place."""
+        existing = {row[1] for row in self.conn.execute("PRAGMA table_info(samples)").fetchall()}
+        for field in SAMPLE_FIELDS:
+            if field not in existing:
+                col_type = "REAL" if field in NUMERIC_FIELDS else "TEXT"
+                self.conn.execute(f"ALTER TABLE samples ADD COLUMN {field} {col_type}")
+        self.conn.commit()
 
     def close(self) -> None:
         self.conn.close()

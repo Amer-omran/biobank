@@ -22,6 +22,9 @@ SAMPLE_FIELDS = [
     "concentration",
     "disease",
     "strain",
+    "isolated",
+    "isolation_date",
+    "passage_number",
     "department",
     "barcode",
 ]
@@ -39,7 +42,9 @@ FIELD_LABELS = {
     "freezer_no": "Freezer no.", "shelf_no": "Shelf no.", "plate_no": "Plate no.",
     "area": "Area", "animal_type": "Animal type", "sample_type": "Sample type",
     "quantity_ml": "Quantity (ml)", "concentration": "Concentration",
-    "disease": "Disease", "strain": "Strain", "department": "Department", "barcode": "Barcode",
+    "disease": "Disease", "strain": "Strain",
+    "isolated": "Isolated", "isolation_date": "Isolation date", "passage_number": "Passage number",
+    "department": "Department", "barcode": "Barcode",
 }
 
 # Numeric fields (coerced to float, stored as REAL).
@@ -101,6 +106,10 @@ IMPORT_ALIASES = {
     "sample concentration": "concentration", "concentration": "concentration", "conc.": "concentration",
     "name of the disease": "disease", "disease": "disease",
     "strain": "strain",
+    "isolated": "isolated", "isolation": "isolated", "isolated?": "isolated",
+    "isolation date": "isolation_date", "date of isolation": "isolation_date",
+    "passage number": "passage_number", "passage no": "passage_number",
+    "passage no.": "passage_number", "passage": "passage_number",
     "department": "department",
     "barcode number": "barcode", "barcode": "barcode",
 }
