@@ -400,6 +400,33 @@ class BiobankHandler(BaseHTTPRequestHandler):
             self.db.add_audit(user["username"], "barcode-remove", bc["sample_id"], f"removed barcode {bc['barcode']}")
         self._send_json(200 if ok else 404, {"deleted": ok})
 
+    def h_list_sample_numbers(self, match: "re.Match[str]", user: Any) -> None:
+        sid = int(match.group("id"))
+        if self.db.get_sample(sid) is None:
+            self._send_json(404, {"error": "sample not found"})
+            return
+        self._send_json(200, {"sample_numbers": self.db.list_sample_numbers(sid)})
+
+    def h_add_sample_number(self, match: "re.Match[str]", user: Any) -> None:
+        sid = int(match.group("id"))
+        if self.db.get_sample(sid) is None:
+            self._send_json(404, {"error": "sample not found"})
+            return
+        value = str(self._read_json().get("sample_number", "")).strip()
+        if not value:
+            raise ValueError("sample number is required")
+        sn = self.db.add_sample_number(sid, value, user["username"])
+        self.db.add_audit(user["username"], "sample-number-add", sid, f"added sample number {value}")
+        self._send_json(201, sn)
+
+    def h_delete_sample_number(self, match: "re.Match[str]", user: Any) -> None:
+        sn = self.db.get_sample_number(int(match.group("id")))
+        ok = self.db.delete_sample_number(int(match.group("id")))
+        if ok and sn:
+            self.db.add_audit(user["username"], "sample-number-remove", sn["sample_id"],
+                              f"removed sample number {sn['sample_number']}")
+        self._send_json(200 if ok else 404, {"deleted": ok})
+
     def h_audit(self, match: "re.Match[str]", user: Any) -> None:
         self._send_json(200, {"audit": self.db.list_audit()})
 
@@ -478,6 +505,9 @@ def _build_routes() -> list[Route]:
         ("GET", p(r"/api/samples/(?P<id>\d+)/barcodes"), "h_list_barcodes", False),
         ("POST", p(r"/api/samples/(?P<id>\d+)/barcodes"), "h_add_barcode", True),
         ("DELETE", p(r"/api/barcodes/(?P<id>\d+)"), "h_delete_barcode", True),
+        ("GET", p(r"/api/samples/(?P<id>\d+)/sample-numbers"), "h_list_sample_numbers", False),
+        ("POST", p(r"/api/samples/(?P<id>\d+)/sample-numbers"), "h_add_sample_number", False),
+        ("DELETE", p(r"/api/sample-numbers/(?P<id>\d+)"), "h_delete_sample_number", True),
         ("PATCH", p(r"/api/samples/(?P<id>\d+)"), "h_update_sample", False),
         ("DELETE", p(r"/api/samples/(?P<id>\d+)"), "h_delete_sample", True),
         ("POST", p(r"/api/change-password"), "h_change_password", False),

@@ -290,6 +290,31 @@ def make_app(
             db.add_audit(user["username"], "barcode-remove", bc["sample_id"], f"removed barcode {bc['barcode']}")
         return json_resp(200 if ok else 404, {"deleted": ok})
 
+    def h_list_sample_numbers(m, user, ctx):
+        sid = int(m.group("id"))
+        if db.get_sample(sid) is None:
+            return json_resp(404, {"error": "sample not found"})
+        return json_resp(200, {"sample_numbers": db.list_sample_numbers(sid)})
+
+    def h_add_sample_number(m, user, ctx):
+        sid = int(m.group("id"))
+        if db.get_sample(sid) is None:
+            return json_resp(404, {"error": "sample not found"})
+        value = str(read_json(ctx["raw"]).get("sample_number", "")).strip()
+        if not value:
+            raise HttpError(400, "sample number is required")
+        sn = db.add_sample_number(sid, value, user["username"])
+        db.add_audit(user["username"], "sample-number-add", sid, f"added sample number {value}")
+        return json_resp(201, sn)
+
+    def h_delete_sample_number(m, user, ctx):
+        sn = db.get_sample_number(int(m.group("id")))
+        ok = db.delete_sample_number(int(m.group("id")))
+        if ok and sn:
+            db.add_audit(user["username"], "sample-number-remove", sn["sample_id"],
+                         f"removed sample number {sn['sample_number']}")
+        return json_resp(200 if ok else 404, {"deleted": ok})
+
     def h_audit(m, user, ctx):
         return json_resp(200, {"audit": db.list_audit()})
 
@@ -353,6 +378,9 @@ def make_app(
         ("GET", re.compile(r"/api/samples/(?P<id>\d+)/barcodes"), h_list_barcodes, True, False),
         ("POST", re.compile(r"/api/samples/(?P<id>\d+)/barcodes"), h_add_barcode, True, True),
         ("DELETE", re.compile(r"/api/barcodes/(?P<id>\d+)"), h_delete_barcode, True, True),
+        ("GET", re.compile(r"/api/samples/(?P<id>\d+)/sample-numbers"), h_list_sample_numbers, True, False),
+        ("POST", re.compile(r"/api/samples/(?P<id>\d+)/sample-numbers"), h_add_sample_number, True, False),
+        ("DELETE", re.compile(r"/api/sample-numbers/(?P<id>\d+)"), h_delete_sample_number, True, True),
         ("PATCH", re.compile(r"/api/samples/(?P<id>\d+)"), h_update_sample, True, False),
         ("DELETE", re.compile(r"/api/samples/(?P<id>\d+)"), h_delete_sample, True, True),
         ("POST", re.compile(r"/api/change-password"), h_change_password, True, False),

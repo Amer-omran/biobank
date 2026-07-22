@@ -99,6 +99,16 @@ CREATE TABLE IF NOT EXISTS barcodes (
 
 CREATE INDEX IF NOT EXISTS idx_bc_sample ON barcodes(sample_id);
 
+CREATE TABLE IF NOT EXISTS sample_numbers (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    sample_id     INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
+    sample_number TEXT NOT NULL,
+    added_by      TEXT,
+    added_at      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_sn_sample ON sample_numbers(sample_id);
+
 CREATE TABLE IF NOT EXISTS audit_log (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     ts          TEXT NOT NULL,
@@ -332,7 +342,8 @@ class Database:
     ) -> list[dict[str, Any]]:
         query = ("SELECT s.*, "
                  "(SELECT COUNT(*) FROM attachments a WHERE a.sample_id = s.id) AS attachments, "
-                 "(SELECT COUNT(*) FROM barcodes b WHERE b.sample_id = s.id) AS barcode_count "
+                 "(SELECT COUNT(*) FROM barcodes b WHERE b.sample_id = s.id) AS barcode_count, "
+                 "(SELECT COUNT(*) FROM sample_numbers n WHERE n.sample_id = s.id) AS sample_number_count "
                  "FROM samples s")
         clauses: list[str] = []
         params: list[Any] = []
@@ -429,6 +440,37 @@ class Database:
     def delete_barcode(self, barcode_id: int) -> bool:
         with self._lock:
             cur = self.conn.execute("DELETE FROM barcodes WHERE id = ?", (barcode_id,))
+            self.conn.commit()
+            return cur.rowcount > 0
+
+    # ----- sample numbers (multiple per sample) ---------------------------
+
+    def add_sample_number(self, sample_id: int, sample_number: str, added_by: Optional[str]) -> dict[str, Any]:
+        with self._lock:
+            cur = self.conn.execute(
+                "INSERT INTO sample_numbers (sample_id, sample_number, added_by, added_at) "
+                "VALUES (?, ?, ?, ?)",
+                (sample_id, sample_number, added_by, _iso(_now())),
+            )
+            self.conn.commit()
+            row = self.conn.execute("SELECT * FROM sample_numbers WHERE id = ?", (cur.lastrowid,)).fetchone()
+        return dict(row)
+
+    def list_sample_numbers(self, sample_id: int) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self.conn.execute(
+                "SELECT * FROM sample_numbers WHERE sample_id = ? ORDER BY id", (sample_id,)
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_sample_number(self, row_id: int) -> Optional[dict[str, Any]]:
+        with self._lock:
+            row = self.conn.execute("SELECT * FROM sample_numbers WHERE id = ?", (row_id,)).fetchone()
+        return dict(row) if row else None
+
+    def delete_sample_number(self, row_id: int) -> bool:
+        with self._lock:
+            cur = self.conn.execute("DELETE FROM sample_numbers WHERE id = ?", (row_id,))
             self.conn.commit()
             return cur.rowcount > 0
 

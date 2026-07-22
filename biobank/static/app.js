@@ -132,6 +132,7 @@ function renderRows(samples) {
     <td>${s.department ? `<span class="dept ${esc(s.department)}">${esc(s.department)}</span>` : "—"}</td>
     ${cell(s.barcode)}<td class="muted">${s.created_by ? esc(s.created_by) : "—"}</td>
     <td style="text-align:right; white-space:nowrap">
+      <button class="x" data-sn="${s.id}" title="Sample numbers">🔢${s.sample_number_count ? " " + s.sample_number_count : ""}</button>
       <button class="x" data-bc="${s.id}" title="Barcodes">🏷️${s.barcode_count ? " " + s.barcode_count : ""}</button>
       <button class="x" data-att="${s.id}" title="Attachments">📎${s.attachments ? " " + s.attachments : ""}</button>
       <button class="x" data-receipt="${s.id}" title="Reception form (PDF)">📄</button>
@@ -305,6 +306,8 @@ $("#rec-form").addEventListener("submit", async e => {
 $("#rows").addEventListener("click", async e => {
   const lab = e.target.closest("[data-lab]");
   if (lab) { e.preventDefault(); $("#search").value = lab.dataset.lab; searchTerm = lab.dataset.lab; refresh(); return; }
+  const sn = e.target.closest("[data-sn]");
+  if (sn) { openSampleNumbers(sn.dataset.sn); return; }
   const bc = e.target.closest("[data-bc]");
   if (bc) { openBarcodes(bc.dataset.bc); return; }
   const att = e.target.closest("[data-att]");
@@ -508,6 +511,54 @@ $("#bc-list").addEventListener("click", async e => {
   const b = e.target.closest("[data-del-bc]"); if (!b) return;
   try { await api("/api/barcodes/" + b.dataset.delBc, { method: "DELETE" }); await loadBarcodes(primaryOf(bcSampleId)); }
   catch (ex) { $("#bc-msg").className = "import-msg bad"; $("#bc-msg").textContent = ex.message; }
+});
+
+// ---- sample numbers (multiple per sample) ----------------------------------
+let snSampleId = null;
+
+function openSampleNumbers(id) {
+  snSampleId = id;
+  const s = lastSamples.find(x => String(x.id) === String(id)) || {};
+  const lab = s.lab_number ? "Lab #" + esc(s.lab_number) : "record #" + id;
+  $("#sn-title").innerHTML = "Sample numbers — " + lab;
+  $("#sn-msg").textContent = ""; $("#sn-msg").className = "import-msg";
+  $("#sn-input").value = "";
+  $("#sn-modal").hidden = false;
+  loadSampleNumbers(s.sample_number);
+}
+async function loadSampleNumbers(primary) {
+  const admin = me && me.role === "admin";
+  try {
+    const { sample_numbers } = await api("/api/samples/" + snSampleId + "/sample-numbers");
+    let html = "";
+    if (primary) html += `<div class="att-row"><span class="fn" style="cursor:default">🔢 ${esc(primary)}</span>
+      <span class="sp"></span><span class="meta">primary</span></div>`;
+    html += sample_numbers.map(n => `<div class="att-row">
+      <span class="fn" style="cursor:default">🔢 ${esc(n.sample_number)}</span><span class="sp"></span>
+      <span class="meta">${esc(n.added_by || "")}${n.added_at ? " · " + esc(n.added_at.slice(0, 10)) : ""}</span>
+      ${admin ? `<button class="x" data-del-sn="${n.id}" title="Delete">✕</button>` : ""}
+    </div>`).join("");
+    $("#sn-list").innerHTML = html || `<div class="att-empty">No sample numbers yet.</div>`;
+  } catch (ex) { $("#sn-list").innerHTML = `<div class="att-empty">${esc(ex.message)}</div>`; }
+}
+function snPrimaryOf(id) { return (lastSamples.find(x => String(x.id) === String(id)) || {}).sample_number; }
+function closeSampleNumbers() { $("#sn-modal").hidden = true; refresh(); }
+$("#sn-close").addEventListener("click", closeSampleNumbers);
+$("#sn-modal").addEventListener("click", e => { if (e.target.id === "sn-modal") closeSampleNumbers(); });
+async function addSampleNumber() {
+  const val = $("#sn-input").value.trim(); if (!val) return;
+  const msg = $("#sn-msg"); msg.className = "import-msg";
+  try {
+    await api("/api/samples/" + snSampleId + "/sample-numbers", { method: "POST", body: { sample_number: val } });
+    $("#sn-input").value = ""; await loadSampleNumbers(snPrimaryOf(snSampleId));
+  } catch (ex) { msg.className = "import-msg bad"; msg.textContent = ex.message; }
+}
+$("#sn-add-btn").addEventListener("click", addSampleNumber);
+$("#sn-input").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addSampleNumber(); } });
+$("#sn-list").addEventListener("click", async e => {
+  const b = e.target.closest("[data-del-sn]"); if (!b) return;
+  try { await api("/api/sample-numbers/" + b.dataset.delSn, { method: "DELETE" }); await loadSampleNumbers(snPrimaryOf(snSampleId)); }
+  catch (ex) { $("#sn-msg").className = "import-msg bad"; $("#sn-msg").textContent = ex.message; }
 });
 
 // ---- boot ------------------------------------------------------------------
