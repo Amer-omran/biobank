@@ -121,6 +121,35 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(rec["isolation_date"], "2025-01-15")
         self.assertEqual(rec["passage_number"], "P3")
 
+    def test_migration_upgrades_old_barcodes_table(self):
+        # A database whose barcodes table predates the sample_number_id column
+        # must open cleanly (regression: the idx_bc_sn index once ran too early).
+        import sqlite3
+        tf = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        tf.close()
+        con = sqlite3.connect(tf.name)
+        con.executescript(
+            "CREATE TABLE samples (id INTEGER PRIMARY KEY AUTOINCREMENT, sample_number TEXT, "
+            "barcode TEXT, area TEXT NOT NULL, animal_type TEXT NOT NULL, sample_type TEXT NOT NULL, "
+            "department TEXT NOT NULL, created_by TEXT, created_at TEXT NOT NULL);"
+            "CREATE TABLE sample_numbers (id INTEGER PRIMARY KEY AUTOINCREMENT, sample_id INTEGER NOT NULL, "
+            "sample_number TEXT NOT NULL, added_by TEXT, added_at TEXT NOT NULL);"
+            "CREATE TABLE barcodes (id INTEGER PRIMARY KEY AUTOINCREMENT, sample_id INTEGER NOT NULL, "
+            "barcode TEXT NOT NULL, added_by TEXT, added_at TEXT NOT NULL);"
+            "INSERT INTO samples (sample_number, barcode, area, animal_type, sample_type, department, created_at) "
+            "VALUES ('S-1','BC-OLD','Riyadh','Cattle','blood','virology','2026-01-01T00:00:00+00:00');"
+            "INSERT INTO barcodes (sample_id, barcode, added_at) VALUES (1,'BC-LEGACY','2026-01-01T00:00:00+00:00');"
+        )
+        con.commit(); con.close()
+        db = Database(tf.name)   # must not raise
+        cols = {r[1] for r in db.conn.execute("PRAGMA table_info(barcodes)").fetchall()}
+        self.assertIn("sample_number_id", cols)
+        self.assertEqual(len(db.list_samples()), 1)
+        st = db.sample_structure(1)
+        self.assertEqual([n["sample_number"] for n in st["sample_numbers"]], ["S-1"])
+        self.assertEqual([b["barcode"] for b in st["unassigned_barcodes"]], ["BC-LEGACY"])
+        db.close(); os.unlink(tf.name)
+
     def test_migration_adds_missing_columns(self):
         import sqlite3
         tf = tempfile.NamedTemporaryFile(suffix=".db", delete=False)

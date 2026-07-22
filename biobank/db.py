@@ -109,7 +109,6 @@ CREATE TABLE IF NOT EXISTS barcodes (
 );
 
 CREATE INDEX IF NOT EXISTS idx_bc_sample ON barcodes(sample_id);
-CREATE INDEX IF NOT EXISTS idx_bc_sn ON barcodes(sample_number_id);
 
 CREATE TABLE IF NOT EXISTS audit_log (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -170,6 +169,9 @@ class Database:
         cols = {row[1] for row in self.conn.execute("PRAGMA table_info(barcodes)").fetchall()}
         if "sample_number_id" not in cols:
             self.conn.execute("ALTER TABLE barcodes ADD COLUMN sample_number_id INTEGER")
+        # index created here (after the column exists) — not in SCHEMA, which runs
+        # before this migration on databases upgraded from an older version.
+        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_bc_sn ON barcodes(sample_number_id)")
         self.conn.commit()
 
     def close(self) -> None:
