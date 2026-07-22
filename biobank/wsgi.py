@@ -30,7 +30,7 @@ from .exporter import build_xlsx
 from .importer import parse_file
 from .options import FIELD_LABELS, OPTIONS, RESTRICTED_FIELDS, SAMPLE_FIELDS
 from .pdf import build_receipt_pdf
-from .server import COOKIE_NAME, STATIC_DIR, seed_users, validate_pdf
+from .server import COOKIE_NAME, STATIC_DIR, format_structure, seed_users, validate_pdf
 
 _STATUS = {
     200: "200 OK", 201: "201 Created", 400: "400 Bad Request",
@@ -215,15 +215,27 @@ def make_app(
                      f"imported {added} record(s) from {filename}" + (f", {skipped} skipped" if skipped else ""))
         return json_resp(200, {"added": added, "skipped": skipped, "parsed": len(records)})
 
+    def sample_with_structure(sid):
+        sample = db.get_sample(sid)
+        if sample is None:
+            return None
+        st = db.sample_structure(sid)
+        numbers_text, barcodes_text = format_structure(st) if st else ("", "")
+        if numbers_text:
+            sample["sample_number"] = numbers_text
+        if barcodes_text:
+            sample["barcode"] = barcodes_text
+        return sample
+
     def h_receipt(m, user, ctx):
-        sample = db.get_sample(int(m.group("id")))
+        sample = sample_with_structure(int(m.group("id")))
         if sample is None:
             return json_resp(404, {"error": "sample not found"})
         return bytes_resp(build_receipt_pdf(sample), "application/pdf",
                           f"sample-{sample['id']}-receipt.pdf", disposition="inline")
 
     def h_form(m, user, ctx):
-        sample = db.get_sample(int(m.group("id")))
+        sample = sample_with_structure(int(m.group("id")))
         if sample is None:
             return json_resp(404, {"error": "sample not found"})
         try:
@@ -266,21 +278,21 @@ def make_app(
             db.add_audit(user["username"], "detach", att["sample_id"], f"removed {att['filename']}")
         return json_resp(200 if ok else 404, {"deleted": ok})
 
-    def h_list_barcodes(m, user, ctx):
-        sid = int(m.group("id"))
-        if db.get_sample(sid) is None:
+    def h_structure(m, user, ctx):
+        st = db.sample_structure(int(m.group("id")))
+        if st is None:
             return json_resp(404, {"error": "sample not found"})
-        return json_resp(200, {"barcodes": db.list_barcodes(sid)})
+        return json_resp(200, st)
 
     def h_add_barcode(m, user, ctx):
-        sid = int(m.group("id"))
-        if db.get_sample(sid) is None:
-            return json_resp(404, {"error": "sample not found"})
         barcode = str(read_json(ctx["raw"]).get("barcode", "")).strip()
         if not barcode:
             raise HttpError(400, "barcode is required")
-        bc = db.add_barcode(sid, barcode, user["username"])
-        db.add_audit(user["username"], "barcode-add", sid, f"added barcode {barcode}")
+        try:
+            bc = db.add_barcode(int(m.group("id")), barcode, user["username"])
+        except ValueError:
+            return json_resp(404, {"error": "sample number not found"})
+        db.add_audit(user["username"], "barcode-add", bc["sample_id"], f"added barcode {barcode}")
         return json_resp(201, bc)
 
     def h_delete_barcode(m, user, ctx):
@@ -375,8 +387,8 @@ def make_app(
         ("POST", re.compile(r"/api/samples/(?P<id>\d+)/attachments"), h_upload_attachment, True, False),
         ("GET", re.compile(r"/api/attachments/(?P<id>\d+)"), h_download_attachment, True, False),
         ("DELETE", re.compile(r"/api/attachments/(?P<id>\d+)"), h_delete_attachment, True, True),
-        ("GET", re.compile(r"/api/samples/(?P<id>\d+)/barcodes"), h_list_barcodes, True, False),
-        ("POST", re.compile(r"/api/samples/(?P<id>\d+)/barcodes"), h_add_barcode, True, True),
+        ("GET", re.compile(r"/api/samples/(?P<id>\d+)/structure"), h_structure, True, False),
+        ("POST", re.compile(r"/api/sample-numbers/(?P<id>\d+)/barcodes"), h_add_barcode, True, True),
         ("DELETE", re.compile(r"/api/barcodes/(?P<id>\d+)"), h_delete_barcode, True, True),
         ("GET", re.compile(r"/api/samples/(?P<id>\d+)/sample-numbers"), h_list_sample_numbers, True, False),
         ("POST", re.compile(r"/api/samples/(?P<id>\d+)/sample-numbers"), h_add_sample_number, True, False),

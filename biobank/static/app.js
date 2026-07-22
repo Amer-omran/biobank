@@ -21,7 +21,6 @@ const FIELD_SPEC = [
   { name: "isolation_date",label: "Isolation date",type: "date", mono: true, cond: true },
   { name: "passage_number",label: "Passage no.",   mono: true, ph: "e.g. P3", cond: true },
   { name: "department",    label: "Department",    list: "dl-department", req: true },
-  { name: "barcode",       label: "Barcode",       mono: true, ph: "BC-000264", restricted: true },
 ];
 
 const DATALIST_FIELDS = ["area", "animal_type", "sample_type", "disease", "strain", "department"];
@@ -130,10 +129,9 @@ function renderRows(samples) {
     ${num(s.quantity_ml)}${cell(s.concentration)}${cell(s.disease)}${cell(s.strain)}
     <td>${s.isolated ? esc(s.isolated) : "—"}</td>${num(s.isolation_date)}${num(s.passage_number)}
     <td>${s.department ? `<span class="dept ${esc(s.department)}">${esc(s.department)}</span>` : "—"}</td>
-    ${cell(s.barcode)}<td class="muted">${s.created_by ? esc(s.created_by) : "—"}</td>
+    <td>${s.barcodes_text ? esc(s.barcodes_text) : (s.barcode ? esc(s.barcode) : "—")}</td><td class="muted">${s.created_by ? esc(s.created_by) : "—"}</td>
     <td style="text-align:right; white-space:nowrap">
-      <button class="x" data-sn="${s.id}" title="Sample numbers">🔢${s.sample_number_count ? " " + s.sample_number_count : ""}</button>
-      <button class="x" data-bc="${s.id}" title="Barcodes">🏷️${s.barcode_count ? " " + s.barcode_count : ""}</button>
+      <button class="x" data-struct="${s.id}" title="Sample numbers & barcodes">🔢${s.sample_number_count ? " " + s.sample_number_count : ""}</button>
       <button class="x" data-att="${s.id}" title="Attachments">📎${s.attachments ? " " + s.attachments : ""}</button>
       <button class="x" data-receipt="${s.id}" title="Reception form (PDF)">📄</button>
       <button class="x" data-form="${s.id}" title="Storage request form (Word)">📝</button>
@@ -306,10 +304,8 @@ $("#rec-form").addEventListener("submit", async e => {
 $("#rows").addEventListener("click", async e => {
   const lab = e.target.closest("[data-lab]");
   if (lab) { e.preventDefault(); $("#search").value = lab.dataset.lab; searchTerm = lab.dataset.lab; refresh(); return; }
-  const sn = e.target.closest("[data-sn]");
-  if (sn) { openSampleNumbers(sn.dataset.sn); return; }
-  const bc = e.target.closest("[data-bc]");
-  if (bc) { openBarcodes(bc.dataset.bc); return; }
+  const st = e.target.closest("[data-struct]");
+  if (st) { openStructure(st.dataset.struct); return; }
   const att = e.target.closest("[data-att]");
   if (att) { openAttachments(att.dataset.att); return; }
   const receipt = e.target.closest("[data-receipt]");
@@ -464,101 +460,71 @@ $("#att-list").addEventListener("click", async e => {
   catch (ex) { $("#att-msg").className = "import-msg bad"; $("#att-msg").textContent = ex.message; }
 });
 
-// ---- barcodes (multiple per sample, admin-managed) -------------------------
-let bcSampleId = null;
+// ---- sample numbers & barcodes (nested tree) -------------------------------
+let structSampleId = null;
 
-function openBarcodes(id) {
-  bcSampleId = id;
+function openStructure(id) {
+  structSampleId = id;
   const s = lastSamples.find(x => String(x.id) === String(id)) || {};
   const lab = s.lab_number ? "Lab #" + esc(s.lab_number) : "record #" + id;
-  const sn = s.sample_number ? " · Sample " + esc(s.sample_number) : "";
-  $("#bc-title").innerHTML = "Barcodes — " + lab + sn;
-  $("#bc-msg").textContent = ""; $("#bc-msg").className = "import-msg";
-  $("#bc-input").value = "";
-  $("#bc-modal").hidden = false;
-  loadBarcodes(s.barcode);
+  $("#struct-title").innerHTML = "Sample numbers &amp; barcodes — " + lab;
+  $("#struct-msg").textContent = ""; $("#struct-msg").className = "import-msg";
+  $("#struct-sn-input").value = "";
+  $("#struct-modal").hidden = false;
+  loadStructure();
 }
-async function loadBarcodes(primary) {
+async function loadStructure() {
   const admin = me && me.role === "admin";
+  const chip = b => `<span class="bc-chip">🏷️ ${esc(b.barcode)}${admin ? ` <a href="#" data-del-bc="${b.id}" title="Delete">✕</a>` : ""}</span>`;
   try {
-    const { barcodes } = await api("/api/samples/" + bcSampleId + "/barcodes");
-    let html = "";
-    if (primary) html += `<div class="att-row"><span class="fn" style="cursor:default">🏷️ ${esc(primary)}</span>
-      <span class="sp"></span><span class="meta">primary</span></div>`;
-    html += barcodes.map(b => `<div class="att-row">
-      <span class="fn" style="cursor:default">🏷️ ${esc(b.barcode)}</span><span class="sp"></span>
-      <span class="meta">${esc(b.added_by || "")}${b.added_at ? " · " + esc(b.added_at.slice(0, 10)) : ""}</span>
-      ${admin ? `<button class="x" data-del-bc="${b.id}" title="Delete">✕</button>` : ""}
-    </div>`).join("");
-    $("#bc-list").innerHTML = html || `<div class="att-empty">No barcodes yet.</div>`;
-  } catch (ex) { $("#bc-list").innerHTML = `<div class="att-empty">${esc(ex.message)}</div>`; }
+    const st = await api("/api/samples/" + structSampleId + "/structure");
+    let html = st.sample_numbers.map(n => {
+      const bcs = n.barcodes.map(chip).join(" ") || `<span class="muted" style="font-size:12px">no barcode yet</span>`;
+      const add = admin ? `<div class="bc-add"><input data-bc-for="${n.id}" placeholder="Barcode for ${esc(n.sample_number)}" autocomplete="off">
+        <button class="btn ghost" data-add-bc="${n.id}">＋ barcode</button></div>` : "";
+      return `<div class="struct-group">
+        <div class="struct-sn">🔢 <b>${esc(n.sample_number)}</b>${admin ? ` <a href="#" class="del-sn" data-del-sn="${n.id}" title="Delete sample number">✕</a>` : ""}</div>
+        <div class="bc-wrap">${bcs}</div>${add}</div>`;
+    }).join("");
+    if (st.unassigned_barcodes && st.unassigned_barcodes.length) {
+      html += `<div class="struct-group"><div class="struct-sn muted">(unassigned barcodes)</div>
+        <div class="bc-wrap">${st.unassigned_barcodes.map(chip).join(" ")}</div></div>`;
+    }
+    $("#struct-list").innerHTML = html || `<div class="att-empty">No sample numbers yet — add one below.</div>`;
+  } catch (ex) { $("#struct-list").innerHTML = `<div class="att-empty">${esc(ex.message)}</div>`; }
 }
-function primaryOf(id) { return (lastSamples.find(x => String(x.id) === String(id)) || {}).barcode; }
-function closeBarcodes() { $("#bc-modal").hidden = true; refresh(); }
-$("#bc-close").addEventListener("click", closeBarcodes);
-$("#bc-modal").addEventListener("click", e => { if (e.target.id === "bc-modal") closeBarcodes(); });
-async function addBarcode() {
-  const val = $("#bc-input").value.trim(); if (!val) return;
-  const msg = $("#bc-msg"); msg.className = "import-msg";
+function closeStructure() { $("#struct-modal").hidden = true; refresh(); }
+$("#struct-close").addEventListener("click", closeStructure);
+$("#struct-modal").addEventListener("click", e => { if (e.target.id === "struct-modal") closeStructure(); });
+async function addStructSampleNumber() {
+  const val = $("#struct-sn-input").value.trim(); if (!val) return;
+  const msg = $("#struct-msg"); msg.className = "import-msg";
   try {
-    await api("/api/samples/" + bcSampleId + "/barcodes", { method: "POST", body: { barcode: val } });
-    $("#bc-input").value = ""; await loadBarcodes(primaryOf(bcSampleId));
+    await api("/api/samples/" + structSampleId + "/sample-numbers", { method: "POST", body: { sample_number: val } });
+    $("#struct-sn-input").value = ""; await loadStructure();
   } catch (ex) { msg.className = "import-msg bad"; msg.textContent = ex.message; }
 }
-$("#bc-add-btn").addEventListener("click", addBarcode);
-$("#bc-input").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addBarcode(); } });
-$("#bc-list").addEventListener("click", async e => {
-  const b = e.target.closest("[data-del-bc]"); if (!b) return;
-  try { await api("/api/barcodes/" + b.dataset.delBc, { method: "DELETE" }); await loadBarcodes(primaryOf(bcSampleId)); }
-  catch (ex) { $("#bc-msg").className = "import-msg bad"; $("#bc-msg").textContent = ex.message; }
+$("#struct-sn-add").addEventListener("click", addStructSampleNumber);
+$("#struct-sn-input").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addStructSampleNumber(); } });
+async function addStructBarcode(snId) {
+  const inp = $("#struct-list").querySelector(`[data-bc-for="${snId}"]`);
+  const val = inp && inp.value.trim(); if (!val) return;
+  try { await api("/api/sample-numbers/" + snId + "/barcodes", { method: "POST", body: { barcode: val } }); await loadStructure(); }
+  catch (ex) { $("#struct-msg").className = "import-msg bad"; $("#struct-msg").textContent = ex.message; }
+}
+$("#struct-list").addEventListener("click", async e => {
+  const addBc = e.target.closest("[data-add-bc]");
+  if (addBc) { addStructBarcode(addBc.dataset.addBc); return; }
+  const t = e.target.closest("[data-del-bc], [data-del-sn]");
+  if (!t) return;
+  e.preventDefault();
+  const url = t.dataset.delBc ? "/api/barcodes/" + t.dataset.delBc : "/api/sample-numbers/" + t.dataset.delSn;
+  try { await api(url, { method: "DELETE" }); await loadStructure(); }
+  catch (ex) { $("#struct-msg").className = "import-msg bad"; $("#struct-msg").textContent = ex.message; }
 });
-
-// ---- sample numbers (multiple per sample) ----------------------------------
-let snSampleId = null;
-
-function openSampleNumbers(id) {
-  snSampleId = id;
-  const s = lastSamples.find(x => String(x.id) === String(id)) || {};
-  const lab = s.lab_number ? "Lab #" + esc(s.lab_number) : "record #" + id;
-  $("#sn-title").innerHTML = "Sample numbers — " + lab;
-  $("#sn-msg").textContent = ""; $("#sn-msg").className = "import-msg";
-  $("#sn-input").value = "";
-  $("#sn-modal").hidden = false;
-  loadSampleNumbers(s.sample_number);
-}
-async function loadSampleNumbers(primary) {
-  const admin = me && me.role === "admin";
-  try {
-    const { sample_numbers } = await api("/api/samples/" + snSampleId + "/sample-numbers");
-    let html = "";
-    if (primary) html += `<div class="att-row"><span class="fn" style="cursor:default">🔢 ${esc(primary)}</span>
-      <span class="sp"></span><span class="meta">primary</span></div>`;
-    html += sample_numbers.map(n => `<div class="att-row">
-      <span class="fn" style="cursor:default">🔢 ${esc(n.sample_number)}</span><span class="sp"></span>
-      <span class="meta">${esc(n.added_by || "")}${n.added_at ? " · " + esc(n.added_at.slice(0, 10)) : ""}</span>
-      ${admin ? `<button class="x" data-del-sn="${n.id}" title="Delete">✕</button>` : ""}
-    </div>`).join("");
-    $("#sn-list").innerHTML = html || `<div class="att-empty">No sample numbers yet.</div>`;
-  } catch (ex) { $("#sn-list").innerHTML = `<div class="att-empty">${esc(ex.message)}</div>`; }
-}
-function snPrimaryOf(id) { return (lastSamples.find(x => String(x.id) === String(id)) || {}).sample_number; }
-function closeSampleNumbers() { $("#sn-modal").hidden = true; refresh(); }
-$("#sn-close").addEventListener("click", closeSampleNumbers);
-$("#sn-modal").addEventListener("click", e => { if (e.target.id === "sn-modal") closeSampleNumbers(); });
-async function addSampleNumber() {
-  const val = $("#sn-input").value.trim(); if (!val) return;
-  const msg = $("#sn-msg"); msg.className = "import-msg";
-  try {
-    await api("/api/samples/" + snSampleId + "/sample-numbers", { method: "POST", body: { sample_number: val } });
-    $("#sn-input").value = ""; await loadSampleNumbers(snPrimaryOf(snSampleId));
-  } catch (ex) { msg.className = "import-msg bad"; msg.textContent = ex.message; }
-}
-$("#sn-add-btn").addEventListener("click", addSampleNumber);
-$("#sn-input").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addSampleNumber(); } });
-$("#sn-list").addEventListener("click", async e => {
-  const b = e.target.closest("[data-del-sn]"); if (!b) return;
-  try { await api("/api/sample-numbers/" + b.dataset.delSn, { method: "DELETE" }); await loadSampleNumbers(snPrimaryOf(snSampleId)); }
-  catch (ex) { $("#sn-msg").className = "import-msg bad"; $("#sn-msg").textContent = ex.message; }
+$("#struct-list").addEventListener("keydown", e => {
+  const inp = e.target.closest("[data-bc-for]");
+  if (inp && e.key === "Enter") { e.preventDefault(); addStructBarcode(inp.dataset.bcFor); }
 });
 
 // ---- boot ------------------------------------------------------------------

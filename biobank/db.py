@@ -89,16 +89,6 @@ CREATE TABLE IF NOT EXISTS attachments (
 
 CREATE INDEX IF NOT EXISTS idx_att_sample ON attachments(sample_id);
 
-CREATE TABLE IF NOT EXISTS barcodes (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    sample_id   INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
-    barcode     TEXT NOT NULL,
-    added_by    TEXT,
-    added_at    TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_bc_sample ON barcodes(sample_id);
-
 CREATE TABLE IF NOT EXISTS sample_numbers (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     sample_id     INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
@@ -108,6 +98,18 @@ CREATE TABLE IF NOT EXISTS sample_numbers (
 );
 
 CREATE INDEX IF NOT EXISTS idx_sn_sample ON sample_numbers(sample_id);
+
+CREATE TABLE IF NOT EXISTS barcodes (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    sample_id        INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
+    sample_number_id INTEGER REFERENCES sample_numbers(id) ON DELETE CASCADE,
+    barcode          TEXT NOT NULL,
+    added_by         TEXT,
+    added_at         TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_bc_sample ON barcodes(sample_id);
+CREATE INDEX IF NOT EXISTS idx_bc_sn ON barcodes(sample_number_id);
 
 CREATE TABLE IF NOT EXISTS audit_log (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -150,6 +152,7 @@ class Database:
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.executescript(SCHEMA)
         self._migrate_samples()
+        self._migrate_barcodes()
         self.conn.commit()
         self._lock = threading.RLock()
 
@@ -160,6 +163,13 @@ class Database:
             if field not in existing:
                 col_type = "REAL" if field in NUMERIC_FIELDS else "TEXT"
                 self.conn.execute(f"ALTER TABLE samples ADD COLUMN {field} {col_type}")
+        self.conn.commit()
+
+    def _migrate_barcodes(self) -> None:
+        """Link barcodes to a specific sample number (add the column if missing)."""
+        cols = {row[1] for row in self.conn.execute("PRAGMA table_info(barcodes)").fetchall()}
+        if "sample_number_id" not in cols:
+            self.conn.execute("ALTER TABLE barcodes ADD COLUMN sample_number_id INTEGER")
         self.conn.commit()
 
     def close(self) -> None:
@@ -293,13 +303,31 @@ class Database:
                     raise ValueError(f"'{field}' must be a number")
             values.append(v)
         with self._lock:
+            now = _iso(_now())
             cur = self.conn.execute(
                 f"INSERT INTO samples ({_SAMPLE_COLUMNS}, created_by, created_at) "
                 f"VALUES ({_SAMPLE_PLACEHOLDERS}, ?, ?)",
-                (*values, created_by, _iso(_now())),
+                (*values, created_by, now),
             )
+            sid = cur.lastrowid
+            # seed the primary sample number (and its barcode) as tree rows
+            row = self.conn.execute(
+                "SELECT sample_number, barcode FROM samples WHERE id = ?", (sid,)
+            ).fetchone()
+            if row["sample_number"]:
+                snc = self.conn.execute(
+                    "INSERT INTO sample_numbers (sample_id, sample_number, added_by, added_at) "
+                    "VALUES (?, ?, ?, ?)",
+                    (sid, row["sample_number"], created_by, now),
+                )
+                if row["barcode"]:
+                    self.conn.execute(
+                        "INSERT INTO barcodes (sample_id, sample_number_id, barcode, added_by, added_at) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        (sid, snc.lastrowid, row["barcode"], created_by, now),
+                    )
             self.conn.commit()
-            return self.get_sample(cur.lastrowid)  # type: ignore[arg-type]
+            return self.get_sample(sid)  # type: ignore[arg-type]
 
     def update_sample(self, sample_id: int, data: dict[str, Any]) -> Optional[dict[str, Any]]:
         """Partial update: only the provided (whitelisted) fields are changed."""
@@ -343,7 +371,8 @@ class Database:
         query = ("SELECT s.*, "
                  "(SELECT COUNT(*) FROM attachments a WHERE a.sample_id = s.id) AS attachments, "
                  "(SELECT COUNT(*) FROM barcodes b WHERE b.sample_id = s.id) AS barcode_count, "
-                 "(SELECT COUNT(*) FROM sample_numbers n WHERE n.sample_id = s.id) AS sample_number_count "
+                 "(SELECT COUNT(*) FROM sample_numbers n WHERE n.sample_id = s.id) AS sample_number_count, "
+                 "(SELECT GROUP_CONCAT(barcode, ', ') FROM barcodes b WHERE b.sample_id = s.id) AS barcodes_text "
                  "FROM samples s")
         clauses: list[str] = []
         params: list[Any] = []
@@ -415,22 +444,64 @@ class Database:
 
     # ----- barcodes (multiple per sample) ---------------------------------
 
-    def add_barcode(self, sample_id: int, barcode: str, added_by: Optional[str]) -> dict[str, Any]:
+    def add_barcode(self, sample_number_id: int, barcode: str, added_by: Optional[str]) -> dict[str, Any]:
+        """Add a barcode that belongs to a specific sample number."""
         with self._lock:
+            sn = self.conn.execute(
+                "SELECT sample_id FROM sample_numbers WHERE id = ?", (sample_number_id,)
+            ).fetchone()
+            if sn is None:
+                raise ValueError("sample number not found")
             cur = self.conn.execute(
-                "INSERT INTO barcodes (sample_id, barcode, added_by, added_at) VALUES (?, ?, ?, ?)",
-                (sample_id, barcode, added_by, _iso(_now())),
+                "INSERT INTO barcodes (sample_id, sample_number_id, barcode, added_by, added_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (sn["sample_id"], sample_number_id, barcode, added_by, _iso(_now())),
             )
             self.conn.commit()
             row = self.conn.execute("SELECT * FROM barcodes WHERE id = ?", (cur.lastrowid,)).fetchone()
         return dict(row)
 
-    def list_barcodes(self, sample_id: int) -> list[dict[str, Any]]:
+    def sample_structure(self, sample_id: int) -> Optional[dict[str, Any]]:
+        """Return sample numbers each with their barcodes; seed the primary once."""
         with self._lock:
-            rows = self.conn.execute(
-                "SELECT * FROM barcodes WHERE sample_id = ? ORDER BY id", (sample_id,)
+            sample = self.conn.execute(
+                "SELECT sample_number, barcode FROM samples WHERE id = ?", (sample_id,)
+            ).fetchone()
+            if sample is None:
+                return None
+            nums = self.conn.execute(
+                "SELECT * FROM sample_numbers WHERE sample_id = ? ORDER BY id", (sample_id,)
             ).fetchall()
-        return [dict(r) for r in rows]
+            if not nums and sample["sample_number"]:
+                cur = self.conn.execute(
+                    "INSERT INTO sample_numbers (sample_id, sample_number, added_by, added_at) "
+                    "VALUES (?, ?, ?, ?)",
+                    (sample_id, sample["sample_number"], None, _iso(_now())),
+                )
+                primary_id = cur.lastrowid
+                if sample["barcode"]:
+                    self.conn.execute(
+                        "INSERT INTO barcodes (sample_id, sample_number_id, barcode, added_by, added_at) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        (sample_id, primary_id, sample["barcode"], None, _iso(_now())),
+                    )
+                self.conn.commit()
+                nums = self.conn.execute(
+                    "SELECT * FROM sample_numbers WHERE sample_id = ? ORDER BY id", (sample_id,)
+                ).fetchall()
+            numbers = []
+            for n in nums:
+                bcs = self.conn.execute(
+                    "SELECT * FROM barcodes WHERE sample_number_id = ? ORDER BY id", (n["id"],)
+                ).fetchall()
+                d = dict(n)
+                d["barcodes"] = [dict(b) for b in bcs]
+                numbers.append(d)
+            unassigned = self.conn.execute(
+                "SELECT * FROM barcodes WHERE sample_id = ? AND sample_number_id IS NULL ORDER BY id",
+                (sample_id,),
+            ).fetchall()
+        return {"sample_numbers": numbers, "unassigned_barcodes": [dict(b) for b in unassigned]}
 
     def get_barcode(self, barcode_id: int) -> Optional[dict[str, Any]]:
         with self._lock:

@@ -366,32 +366,35 @@ class ApiTests(unittest.TestCase):
         update_entry = next(e for e in body["audit"] if e["action"] == "update" and e["sample_id"] == rec["id"])
         self.assertIn("sample_type", update_entry["summary"])
 
-    def test_multiple_barcodes_flow(self):
+    def test_barcodes_nested_under_sample_numbers(self):
         admin = self._login("admin1")
         _, rec, _ = self._req("POST", "/api/samples", {
             "lab_number": "264", "sample_number": "S-1", "area": "Riyadh",
             "animal_type": "Cattle", "sample_type": "blood", "department": "virology"}, token=admin)
         sid = rec["id"]
-        # admin adds two barcodes
-        self.assertEqual(self._req("POST", f"/api/samples/{sid}/barcodes",
-                                   {"barcode": "BC-264-1"}, token=admin)[0], 201)
-        self.assertEqual(self._req("POST", f"/api/samples/{sid}/barcodes",
-                                   {"barcode": "BC-264-2"}, token=admin)[0], 201)
-        # listed, and the sample reports the count
-        body = self._req("GET", f"/api/samples/{sid}/barcodes", token=admin)[1]
-        self.assertEqual([b["barcode"] for b in body["barcodes"]], ["BC-264-1", "BC-264-2"])
-        listing = self._req("GET", "/api/samples?search=264", token=admin)[1]["samples"]
-        self.assertEqual(next(s for s in listing if s["id"] == sid)["barcode_count"], 2)
-        # staff can view but not add or delete
+        # the primary sample number is seeded on create
+        st = self._req("GET", f"/api/samples/{sid}/structure", token=admin)[1]
+        self.assertEqual([n["sample_number"] for n in st["sample_numbers"]], ["S-1"])
+        sn_id = st["sample_numbers"][0]["id"]
+        # admin adds two barcodes under that specific sample number
+        self.assertEqual(self._req("POST", f"/api/sample-numbers/{sn_id}/barcodes",
+                                   {"barcode": "BC-1"}, token=admin)[0], 201)
+        self.assertEqual(self._req("POST", f"/api/sample-numbers/{sn_id}/barcodes",
+                                   {"barcode": "BC-2"}, token=admin)[0], 201)
+        st = self._req("GET", f"/api/samples/{sid}/structure", token=admin)[1]
+        self.assertEqual([b["barcode"] for b in st["sample_numbers"][0]["barcodes"]], ["BC-1", "BC-2"])
+        # staff can view but not add barcodes
         staff = self._login("user1")
-        self.assertEqual(self._req("GET", f"/api/samples/{sid}/barcodes", token=staff)[0], 200)
-        self.assertEqual(self._req("POST", f"/api/samples/{sid}/barcodes",
+        self.assertEqual(self._req("GET", f"/api/samples/{sid}/structure", token=staff)[0], 200)
+        self.assertEqual(self._req("POST", f"/api/sample-numbers/{sn_id}/barcodes",
                                    {"barcode": "X"}, token=staff)[0], 403)
-        # admin deletes one
-        bid = body["barcodes"][0]["id"]
-        self.assertEqual(self._req("DELETE", f"/api/barcodes/{bid}", token=staff)[0], 403)
+        # the sample list aggregates the barcodes
+        s = next(x for x in self._req("GET", "/api/samples?search=264", token=admin)[1]["samples"] if x["id"] == sid)
+        self.assertIn("BC-1", s["barcodes_text"])
+        self.assertEqual(s["barcode_count"], 2)
+        # admin deletes one barcode
+        bid = st["sample_numbers"][0]["barcodes"][0]["id"]
         self.assertEqual(self._req("DELETE", f"/api/barcodes/{bid}", token=admin)[0], 200)
-        self.assertEqual(len(self._req("GET", f"/api/samples/{sid}/barcodes", token=admin)[1]["barcodes"]), 1)
 
     def test_multiple_sample_numbers_flow(self):
         staff = self._login("user1")
@@ -399,17 +402,17 @@ class ApiTests(unittest.TestCase):
             "lab_number": "264", "sample_number": "S-1", "area": "Riyadh",
             "animal_type": "Cattle", "sample_type": "blood", "department": "virology"}, token=staff)
         sid = rec["id"]
-        # staff CAN add sample numbers (unlike barcodes)
+        # staff CAN add sample numbers (unlike barcodes); the primary S-1 is seeded
         self.assertEqual(self._req("POST", f"/api/samples/{sid}/sample-numbers",
                                    {"sample_number": "S-2"}, token=staff)[0], 201)
         self.assertEqual(self._req("POST", f"/api/samples/{sid}/sample-numbers",
                                    {"sample_number": "S-3"}, token=staff)[0], 201)
         body = self._req("GET", f"/api/samples/{sid}/sample-numbers", token=staff)[1]
-        self.assertEqual([n["sample_number"] for n in body["sample_numbers"]], ["S-2", "S-3"])
+        self.assertEqual([n["sample_number"] for n in body["sample_numbers"]], ["S-1", "S-2", "S-3"])
         listing = self._req("GET", "/api/samples?search=264", token=staff)[1]["samples"]
-        self.assertEqual(next(s for s in listing if s["id"] == sid)["sample_number_count"], 2)
+        self.assertEqual(next(s for s in listing if s["id"] == sid)["sample_number_count"], 3)
         # staff cannot delete; admin can
-        nid = body["sample_numbers"][0]["id"]
+        nid = body["sample_numbers"][1]["id"]
         self.assertEqual(self._req("DELETE", f"/api/sample-numbers/{nid}", token=staff)[0], 403)
         admin = self._login("admin1")
         self.assertEqual(self._req("DELETE", f"/api/sample-numbers/{nid}", token=admin)[0], 200)
@@ -417,9 +420,11 @@ class ApiTests(unittest.TestCase):
     def test_barcodes_cascade_on_sample_delete(self):
         admin = self._login("admin1")
         _, rec, _ = self._req("POST", "/api/samples", {
-            "area": "Hail", "animal_type": "Camel", "sample_type": "tissue",
-            "department": "Parasitic"}, token=admin)
-        bid = self._req("POST", f"/api/samples/{rec['id']}/barcodes",
+            "sample_number": "S-9", "area": "Hail", "animal_type": "Camel",
+            "sample_type": "tissue", "department": "Parasitic"}, token=admin)
+        st = self._req("GET", f"/api/samples/{rec['id']}/structure", token=admin)[1]
+        sn_id = st["sample_numbers"][0]["id"]
+        bid = self._req("POST", f"/api/sample-numbers/{sn_id}/barcodes",
                         {"barcode": "BC-9"}, token=admin)[1]["id"]
         self._req("DELETE", f"/api/samples/{rec['id']}", token=admin)
         self.assertEqual(len(self.db_barcodes(bid)), 0)
@@ -515,6 +520,21 @@ class ApiTests(unittest.TestCase):
             if old is not None:
                 os.environ["BIOBANK_FORM_TEMPLATE"] = old
             os.unlink(tf.name)
+
+    def test_receipt_includes_sample_numbers_and_barcodes(self):
+        admin = self._login("admin1")
+        _, rec, _ = self._req("POST", "/api/samples", {
+            "sample_number": "S-1", "area": "Riyadh", "animal_type": "Cattle",
+            "sample_type": "blood", "department": "virology"}, token=admin)
+        st = self._req("GET", f"/api/samples/{rec['id']}/structure", token=admin)[1]
+        sn_id = st["sample_numbers"][0]["id"]
+        self._req("POST", f"/api/sample-numbers/{sn_id}/barcodes", {"barcode": "BC-XYZ"}, token=admin)
+        url = f"http://127.0.0.1:{self.port}/api/samples/{rec['id']}/receipt.pdf"
+        req = urllib.request.Request(url, headers={"Cookie": f"bb_session={admin}"})
+        with urllib.request.urlopen(req) as resp:
+            pdf = resp.read()
+        self.assertIn(b"BC-XYZ", pdf)   # the barcode flows into the reception form
+        self.assertIn(b"S-1", pdf)
 
     def test_xlsx_export_endpoint_admin_only(self):
         admin = self._login("admin1")

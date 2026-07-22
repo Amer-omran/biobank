@@ -198,6 +198,18 @@
   .att-empty { padding:22px 0; text-align:center; color:var(--txt-faint); font-size:13px; }
   .att-upload { padding:14px 18px; border-top:1px solid var(--line-soft); display:flex;
     align-items:center; gap:12px; background:var(--panel-2); }
+  /* sample-number -> barcodes tree */
+  .struct-group { padding:11px 0; border-bottom:1px solid var(--line-soft); }
+  .struct-group:last-child { border-bottom:none; }
+  .struct-sn { font-size:13px; margin-bottom:7px; }
+  .struct-sn .del-sn, .bc-chip a { color:var(--txt-faint); text-decoration:none; margin-left:5px; }
+  .struct-sn .del-sn:hover, .bc-chip a:hover { color:var(--b-fg); }
+  .bc-wrap { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .bc-chip { display:inline-flex; align-items:center; gap:3px; font-size:12px; background:var(--panel-2);
+    border:1px solid var(--line); border-radius:20px; padding:3px 10px; font-family:var(--mono); }
+  .bc-add { display:flex; gap:6px; margin-top:8px; }
+  .bc-add input { flex:1; font-size:12px; padding:6px 9px; }
+  .bc-add .btn { padding:6px 11px; font-size:12px; }
 
   @media (max-width:900px){ .stats{grid-template-columns:repeat(2,1fr);} .fgrid{grid-template-columns:repeat(2,1fr);} }
   @media (max-width:560px){ .fgrid{grid-template-columns:1fr;} }
@@ -381,28 +393,15 @@
     </div>
   </div>
 
-  <div id="sn-modal" class="modal" hidden>
+  <div id="struct-modal" class="modal" hidden>
     <div class="modal-card">
-      <div class="modal-h"><h2 id="sn-title">Sample numbers</h2>
-        <button class="tbtn" id="sn-close" title="Close" aria-label="Close">✕</button></div>
-      <div class="att-list" id="sn-list"></div>
+      <div class="modal-h"><h2 id="struct-title">Sample numbers &amp; barcodes</h2>
+        <button class="tbtn" id="struct-close" title="Close" aria-label="Close">✕</button></div>
+      <div class="att-list" id="struct-list"></div>
       <div class="att-upload">
-        <input id="sn-input" placeholder="New sample number" autocomplete="off" style="flex:1">
-        <button class="btn" id="sn-add-btn">Add number</button>
-        <span class="import-msg" id="sn-msg"></span>
-      </div>
-    </div>
-  </div>
-
-  <div id="bc-modal" class="modal" hidden>
-    <div class="modal-card">
-      <div class="modal-h"><h2 id="bc-title">Barcodes</h2>
-        <button class="tbtn" id="bc-close" title="Close" aria-label="Close">✕</button></div>
-      <div class="att-list" id="bc-list"></div>
-      <div class="att-upload admin-only">
-        <input id="bc-input" placeholder="New barcode" autocomplete="off" style="flex:1">
-        <button class="btn" id="bc-add-btn">Add barcode</button>
-        <span class="import-msg" id="bc-msg"></span>
+        <input id="struct-sn-input" placeholder="New sample number" autocomplete="off" style="flex:1">
+        <button class="btn" id="struct-sn-add">Add sample number</button>
+        <span class="import-msg" id="struct-msg"></span>
       </div>
     </div>
   </div>

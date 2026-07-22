@@ -39,6 +39,19 @@ STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024  # 10 MB per file
 
 
+def format_structure(structure: dict) -> tuple[str, str]:
+    """Flatten the sample-number/barcode tree into (numbers_text, barcodes_text)."""
+    numbers, groups = [], []
+    for n in structure.get("sample_numbers", []):
+        numbers.append(n["sample_number"])
+        bcs = [b["barcode"] for b in n.get("barcodes", [])]
+        if bcs:
+            groups.append(f"{n['sample_number']}: " + ", ".join(bcs))
+    for b in structure.get("unassigned_barcodes", []):
+        groups.append(b["barcode"])
+    return ", ".join(numbers), " | ".join(groups)
+
+
 def validate_pdf(filename: str, data: bytes) -> None:
     """Raise ValueError unless `data` is a non-empty PDF within the size limit."""
     if not data:
@@ -317,8 +330,20 @@ class BiobankHandler(BaseHTTPRequestHandler):
             )
         self._send_json(200 if ok else 404, {"deleted": ok})
 
+    def _sample_with_structure(self, sid: int) -> Optional[dict[str, Any]]:
+        sample = self.db.get_sample(sid)
+        if sample is None:
+            return None
+        st = self.db.sample_structure(sid)
+        numbers_text, barcodes_text = format_structure(st) if st else ("", "")
+        if numbers_text:
+            sample["sample_number"] = numbers_text
+        if barcodes_text:
+            sample["barcode"] = barcodes_text
+        return sample
+
     def h_receipt(self, match: "re.Match[str]", user: Any) -> None:
-        sample = self.db.get_sample(int(match.group("id")))
+        sample = self._sample_with_structure(int(match.group("id")))
         if sample is None:
             self._send_json(404, {"error": "sample not found"})
             return
@@ -326,7 +351,7 @@ class BiobankHandler(BaseHTTPRequestHandler):
                          f"sample-{sample['id']}-receipt.pdf", disposition="inline")
 
     def h_form(self, match: "re.Match[str]", user: Any) -> None:
-        sample = self.db.get_sample(int(match.group("id")))
+        sample = self._sample_with_structure(int(match.group("id")))
         if sample is None:
             self._send_json(404, {"error": "sample not found"})
             return
@@ -374,23 +399,23 @@ class BiobankHandler(BaseHTTPRequestHandler):
             self.db.add_audit(user["username"], "detach", att["sample_id"], f"removed {att['filename']}")
         self._send_json(200 if ok else 404, {"deleted": ok})
 
-    def h_list_barcodes(self, match: "re.Match[str]", user: Any) -> None:
-        sid = int(match.group("id"))
-        if self.db.get_sample(sid) is None:
+    def h_structure(self, match: "re.Match[str]", user: Any) -> None:
+        st = self.db.sample_structure(int(match.group("id")))
+        if st is None:
             self._send_json(404, {"error": "sample not found"})
             return
-        self._send_json(200, {"barcodes": self.db.list_barcodes(sid)})
+        self._send_json(200, st)
 
     def h_add_barcode(self, match: "re.Match[str]", user: Any) -> None:
-        sid = int(match.group("id"))
-        if self.db.get_sample(sid) is None:
-            self._send_json(404, {"error": "sample not found"})
-            return
         barcode = str(self._read_json().get("barcode", "")).strip()
         if not barcode:
             raise ValueError("barcode is required")
-        bc = self.db.add_barcode(sid, barcode, user["username"])
-        self.db.add_audit(user["username"], "barcode-add", sid, f"added barcode {barcode}")
+        try:
+            bc = self.db.add_barcode(int(match.group("id")), barcode, user["username"])
+        except ValueError:
+            self._send_json(404, {"error": "sample number not found"})
+            return
+        self.db.add_audit(user["username"], "barcode-add", bc["sample_id"], f"added barcode {barcode}")
         self._send_json(201, bc)
 
     def h_delete_barcode(self, match: "re.Match[str]", user: Any) -> None:
@@ -502,8 +527,8 @@ def _build_routes() -> list[Route]:
         ("POST", p(r"/api/samples/(?P<id>\d+)/attachments"), "h_upload_attachment", False),
         ("GET", p(r"/api/attachments/(?P<id>\d+)"), "h_download_attachment", False),
         ("DELETE", p(r"/api/attachments/(?P<id>\d+)"), "h_delete_attachment", True),
-        ("GET", p(r"/api/samples/(?P<id>\d+)/barcodes"), "h_list_barcodes", False),
-        ("POST", p(r"/api/samples/(?P<id>\d+)/barcodes"), "h_add_barcode", True),
+        ("GET", p(r"/api/samples/(?P<id>\d+)/structure"), "h_structure", False),
+        ("POST", p(r"/api/sample-numbers/(?P<id>\d+)/barcodes"), "h_add_barcode", True),
         ("DELETE", p(r"/api/barcodes/(?P<id>\d+)"), "h_delete_barcode", True),
         ("GET", p(r"/api/samples/(?P<id>\d+)/sample-numbers"), "h_list_sample_numbers", False),
         ("POST", p(r"/api/samples/(?P<id>\d+)/sample-numbers"), "h_add_sample_number", False),

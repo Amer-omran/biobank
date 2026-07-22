@@ -34,10 +34,10 @@ so it runs on any stock Python 3.9+ install.
   its fields populated (stdlib `zipfile`/`xml`, template kept out of the repo).
 - **PDF attachments** per sample (e.g. test results): upload/view/download for any
   user, delete for admins; files are stored in the database (max 10 MB, PDF only).
-- **Multiple barcodes per sample** (aliquots), admin-managed, alongside the primary
-  barcode — with a per-row count and a modal showing the sample/lab linkage.
-- **Multiple sample numbers per sample**, addable by any user (delete for admins),
-  with a per-row count and modal.
+- **Nested sample numbers → barcodes**: one lab record can hold several sample
+  numbers, and each sample number its own barcode(s). A single per-row modal shows
+  the tree; anyone can add sample numbers, admins add/delete barcodes. The sample
+  numbers and their barcodes flow into the reception form (PDF and Word).
 - **One lab number, many samples**: enter several samples under a lab number (an
   "add another under lab #" shortcut), and click a lab number to see all its samples.
 - **Admin-only** (admin1/admin2): an **audit log** recording every create, edit,
@@ -101,11 +101,11 @@ All `/api` routes except `/health` and `/login` require the session cookie set b
 | `GET`/`POST` | `/api/samples/{id}/attachments` | auth | List / upload PDF attachments (`?filename=`). |
 | `GET`    | `/api/attachments/{id}`         | auth  | Download an attachment.                 |
 | `DELETE` | `/api/attachments/{id}`         | admin | Delete an attachment.                   |
-| `GET`    | `/api/samples/{id}/barcodes`    | auth  | List a sample's barcodes.               |
-| `POST`   | `/api/samples/{id}/barcodes`    | admin | Add a barcode to a sample.              |
-| `DELETE` | `/api/barcodes/{id}`            | admin | Delete a barcode.                       |
+| `GET`    | `/api/samples/{id}/structure`   | auth  | Sample numbers with their nested barcodes. |
 | `GET`/`POST` | `/api/samples/{id}/sample-numbers` | auth | List / add sample numbers.        |
-| `DELETE` | `/api/sample-numbers/{id}`      | admin | Delete a sample number.                 |
+| `DELETE` | `/api/sample-numbers/{id}`      | admin | Delete a sample number (and its barcodes). |
+| `POST`   | `/api/sample-numbers/{id}/barcodes` | admin | Add a barcode under a sample number. |
+| `DELETE` | `/api/barcodes/{id}`            | admin | Delete a barcode.                       |
 | `DELETE` | `/api/samples/{id}`   | admin  | Delete a sample.                         |
 | `POST`   | `/api/change-password`| auth   | Change your own password.                |
 | `POST`   | `/api/import`         | admin  | Import `.xlsx`/`.csv` (`?filename=`).    |
