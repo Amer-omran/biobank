@@ -366,6 +366,50 @@ class ApiTests(unittest.TestCase):
         update_entry = next(e for e in body["audit"] if e["action"] == "update" and e["sample_id"] == rec["id"])
         self.assertIn("sample_type", update_entry["summary"])
 
+    def test_attachments_flow(self):
+        pdf = b"%PDF-1.4 test document"
+        token = self._login("user1")           # staff can attach
+        _, rec, _ = self._req("POST", "/api/samples", {
+            "area": "Riyadh", "animal_type": "Cattle", "sample_type": "blood",
+            "department": "virology"}, token=token)
+        sid = rec["id"]
+        # reject a non-PDF
+        status, _, _ = self._req("POST", f"/api/samples/{sid}/attachments?filename=x.txt",
+                                 raw=b"hello", token=token)
+        self.assertEqual(status, 400)
+        # upload a PDF
+        status, att, _ = self._req("POST", f"/api/samples/{sid}/attachments?filename=result.pdf",
+                                   raw=pdf, token=token)
+        self.assertEqual(status, 201, att)
+        self.assertEqual(att["filename"], "result.pdf")
+        self.assertEqual(att["size"], len(pdf))
+        # it is listed, and the sample now reports a count
+        status, body, _ = self._req("GET", f"/api/samples/{sid}/attachments", token=token)
+        self.assertEqual(len(body["attachments"]), 1)
+        listing = self._req("GET", f"/api/samples?search=Riyadh", token=token)[1]["samples"]
+        self.assertEqual(next(s for s in listing if s["id"] == sid)["attachments"], 1)
+        # download returns the bytes
+        url = f"http://127.0.0.1:{self.port}/api/attachments/{att['id']}"
+        req = urllib.request.Request(url, headers={"Cookie": f"bb_session={token}"})
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.headers.get("Content-Type"), "application/pdf")
+            self.assertEqual(resp.read(), pdf)
+        # staff cannot delete; admin can
+        self.assertEqual(self._req("DELETE", f"/api/attachments/{att['id']}", token=token)[0], 403)
+        admin = self._login("admin1")
+        self.assertEqual(self._req("DELETE", f"/api/attachments/{att['id']}", token=admin)[0], 200)
+        self.assertEqual(len(self._req("GET", f"/api/samples/{sid}/attachments", token=admin)[1]["attachments"]), 0)
+
+    def test_attachment_cascades_on_sample_delete(self):
+        admin = self._login("admin1")
+        _, rec, _ = self._req("POST", "/api/samples", {
+            "area": "Abha", "animal_type": "Camel", "sample_type": "tissue",
+            "department": "Parasitic"}, token=admin)
+        _, att, _ = self._req("POST", f"/api/samples/{rec['id']}/attachments?filename=a.pdf",
+                              raw=b"%PDF-1.4 x", token=admin)
+        self._req("DELETE", f"/api/samples/{rec['id']}", token=admin)
+        self.assertEqual(self._req("GET", f"/api/attachments/{att['id']}", token=admin)[0], 404)
+
     def test_receipt_pdf(self):
         token = self._login("user1")  # staff can print a reception form
         _, rec, _ = self._req("POST", "/api/samples", {

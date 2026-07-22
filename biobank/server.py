@@ -36,6 +36,17 @@ from .pdf import build_receipt_pdf
 
 COOKIE_NAME = "bb_session"
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024  # 10 MB per file
+
+
+def validate_pdf(filename: str, data: bytes) -> None:
+    """Raise ValueError unless `data` is a non-empty PDF within the size limit."""
+    if not data:
+        raise ValueError("no file uploaded")
+    if len(data) > MAX_ATTACHMENT_BYTES:
+        raise ValueError("file too large (max 10 MB)")
+    if not filename.lower().endswith(".pdf") or data.lstrip()[:4] != b"%PDF":
+        raise ValueError("only PDF files are allowed")
 
 Route = tuple[str, "re.Pattern[str]", str, bool]  # method, pattern, handler-name, admin_only
 
@@ -330,6 +341,39 @@ class BiobankHandler(BaseHTTPRequestHandler):
             f"sample-{sample['id']}-storage-form.docx",
         )
 
+    def h_list_attachments(self, match: "re.Match[str]", user: Any) -> None:
+        sid = int(match.group("id"))
+        if self.db.get_sample(sid) is None:
+            self._send_json(404, {"error": "sample not found"})
+            return
+        self._send_json(200, {"attachments": self.db.list_attachments(sid)})
+
+    def h_upload_attachment(self, match: "re.Match[str]", user: Any) -> None:
+        sid = int(match.group("id"))
+        if self.db.get_sample(sid) is None:
+            self._send_json(404, {"error": "sample not found"})
+            return
+        filename = os.path.basename(self._query().get("filename", ["file.pdf"])[0])
+        data = self._read_bytes()
+        validate_pdf(filename, data)
+        att = self.db.add_attachment(sid, filename, data, user["username"])
+        self.db.add_audit(user["username"], "attach", sid, f"attached {filename}")
+        self._send_json(201, att)
+
+    def h_download_attachment(self, match: "re.Match[str]", user: Any) -> None:
+        att = self.db.get_attachment(int(match.group("id")))
+        if att is None:
+            self._send_json(404, {"error": "attachment not found"})
+            return
+        self._send_bytes(att["data"], att["content_type"], att["filename"], disposition="inline")
+
+    def h_delete_attachment(self, match: "re.Match[str]", user: Any) -> None:
+        att = self.db.get_attachment_meta(int(match.group("id")))
+        ok = self.db.delete_attachment(int(match.group("id")))
+        if ok and att:
+            self.db.add_audit(user["username"], "detach", att["sample_id"], f"removed {att['filename']}")
+        self._send_json(200 if ok else 404, {"deleted": ok})
+
     def h_audit(self, match: "re.Match[str]", user: Any) -> None:
         self._send_json(200, {"audit": self.db.list_audit()})
 
@@ -401,6 +445,10 @@ def _build_routes() -> list[Route]:
         ("POST", p(r"/api/samples"), "h_create_sample", False),
         ("GET", p(r"/api/samples/(?P<id>\d+)/receipt\.pdf"), "h_receipt", False),
         ("GET", p(r"/api/samples/(?P<id>\d+)/form\.docx"), "h_form", False),
+        ("GET", p(r"/api/samples/(?P<id>\d+)/attachments"), "h_list_attachments", False),
+        ("POST", p(r"/api/samples/(?P<id>\d+)/attachments"), "h_upload_attachment", False),
+        ("GET", p(r"/api/attachments/(?P<id>\d+)"), "h_download_attachment", False),
+        ("DELETE", p(r"/api/attachments/(?P<id>\d+)"), "h_delete_attachment", True),
         ("PATCH", p(r"/api/samples/(?P<id>\d+)"), "h_update_sample", False),
         ("DELETE", p(r"/api/samples/(?P<id>\d+)"), "h_delete_sample", True),
         ("POST", p(r"/api/change-password"), "h_change_password", False),

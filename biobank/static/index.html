@@ -178,6 +178,27 @@
   :root.role-staff .admin-only { display:none !important; }
   :root.role-staff .restricted-field { display:none !important; }
 
+  /* attachments modal */
+  .modal { position:fixed; inset:0; z-index:60; display:grid; place-items:center; padding:20px;
+    background:rgba(6,10,15,.55); }
+  .modal[hidden] { display:none; }
+  .modal-card { width:100%; max-width:520px; background:var(--panel); border:1px solid var(--line);
+    border-radius:15px; box-shadow:var(--shadow); overflow:hidden; }
+  .modal-h { display:flex; align-items:center; gap:8px; padding:14px 18px; border-bottom:1px solid var(--line-soft); }
+  .modal-h h2 { margin:0; font-size:15px; letter-spacing:-.01em; }
+  .modal-h .tbtn { margin-left:auto; }
+  .att-list { padding:4px 18px; max-height:46vh; overflow-y:auto; }
+  .att-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line-soft); font-size:13px; }
+  .att-row:last-child { border-bottom:none; }
+  .att-row .fn { font-weight:600; color:var(--accent); text-decoration:none; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; max-width:250px; }
+  .att-row .fn:hover { text-decoration:underline; }
+  .att-row .sp { flex:1; }
+  .att-row .meta { color:var(--txt-faint); font-size:11px; white-space:nowrap; }
+  .att-empty { padding:22px 0; text-align:center; color:var(--txt-faint); font-size:13px; }
+  .att-upload { padding:14px 18px; border-top:1px solid var(--line-soft); display:flex;
+    align-items:center; gap:12px; background:var(--panel-2); }
+
   @media (max-width:900px){ .stats{grid-template-columns:repeat(2,1fr);} .fgrid{grid-template-columns:repeat(2,1fr);} }
   @media (max-width:560px){ .fgrid{grid-template-columns:1fr;} }
 </style>
@@ -346,6 +367,19 @@
     Server-enforced roles · dependency-free Python backend ·
     run with <code>python3 -m biobank.server</code>.
   </footer>
+
+  <div id="att-modal" class="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-h"><h2 id="att-title">Attachments</h2>
+        <button class="tbtn" id="att-close" title="Close" aria-label="Close">✕</button></div>
+      <div class="att-list" id="att-list"></div>
+      <div class="att-upload">
+        <input type="file" id="att-file" accept="application/pdf,.pdf" hidden>
+        <button class="btn" id="att-upload-btn">⬆&nbsp; Upload PDF</button>
+        <span class="import-msg" id="att-msg"></span>
+      </div>
+    </div>
+  </div>
 
   <datalist id="dl-area"></datalist>
   <datalist id="dl-animal_type"></datalist>

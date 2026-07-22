@@ -30,7 +30,7 @@ from .exporter import build_xlsx
 from .importer import parse_file
 from .options import FIELD_LABELS, OPTIONS, RESTRICTED_FIELDS, SAMPLE_FIELDS
 from .pdf import build_receipt_pdf
-from .server import COOKIE_NAME, STATIC_DIR, seed_users
+from .server import COOKIE_NAME, STATIC_DIR, seed_users, validate_pdf
 
 _STATUS = {
     200: "200 OK", 201: "201 Created", 400: "400 Bad Request",
@@ -236,6 +236,36 @@ def make_app(
             f"sample-{sample['id']}-storage-form.docx",
         )
 
+    def h_list_attachments(m, user, ctx):
+        sid = int(m.group("id"))
+        if db.get_sample(sid) is None:
+            return json_resp(404, {"error": "sample not found"})
+        return json_resp(200, {"attachments": db.list_attachments(sid)})
+
+    def h_upload_attachment(m, user, ctx):
+        sid = int(m.group("id"))
+        if db.get_sample(sid) is None:
+            return json_resp(404, {"error": "sample not found"})
+        filename = os.path.basename(ctx["query"].get("filename", ["file.pdf"])[0])
+        data = ctx["raw"]
+        validate_pdf(filename, data)
+        att = db.add_attachment(sid, filename, data, user["username"])
+        db.add_audit(user["username"], "attach", sid, f"attached {filename}")
+        return json_resp(201, att)
+
+    def h_download_attachment(m, user, ctx):
+        att = db.get_attachment(int(m.group("id")))
+        if att is None:
+            return json_resp(404, {"error": "attachment not found"})
+        return bytes_resp(att["data"], att["content_type"], att["filename"], disposition="inline")
+
+    def h_delete_attachment(m, user, ctx):
+        att = db.get_attachment_meta(int(m.group("id")))
+        ok = db.delete_attachment(int(m.group("id")))
+        if ok and att:
+            db.add_audit(user["username"], "detach", att["sample_id"], f"removed {att['filename']}")
+        return json_resp(200 if ok else 404, {"deleted": ok})
+
     def h_audit(m, user, ctx):
         return json_resp(200, {"audit": db.list_audit()})
 
@@ -292,6 +322,10 @@ def make_app(
         ("POST", re.compile(r"/api/samples"), h_create_sample, True, False),
         ("GET", re.compile(r"/api/samples/(?P<id>\d+)/receipt\.pdf"), h_receipt, True, False),
         ("GET", re.compile(r"/api/samples/(?P<id>\d+)/form\.docx"), h_form, True, False),
+        ("GET", re.compile(r"/api/samples/(?P<id>\d+)/attachments"), h_list_attachments, True, False),
+        ("POST", re.compile(r"/api/samples/(?P<id>\d+)/attachments"), h_upload_attachment, True, False),
+        ("GET", re.compile(r"/api/attachments/(?P<id>\d+)"), h_download_attachment, True, False),
+        ("DELETE", re.compile(r"/api/attachments/(?P<id>\d+)"), h_delete_attachment, True, True),
         ("PATCH", re.compile(r"/api/samples/(?P<id>\d+)"), h_update_sample, True, False),
         ("DELETE", re.compile(r"/api/samples/(?P<id>\d+)"), h_delete_sample, True, True),
         ("POST", re.compile(r"/api/change-password"), h_change_password, True, False),

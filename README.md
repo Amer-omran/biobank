@@ -32,6 +32,8 @@ so it runs on any stock Python 3.9+ install.
 - **Your own Word form, auto-filled**: point `BIOBANK_FORM_TEMPLATE` at a `.docx`
   storage-request form and each sample can be downloaded as that exact form with
   its fields populated (stdlib `zipfile`/`xml`, template kept out of the repo).
+- **PDF attachments** per sample (e.g. test results): upload/view/download for any
+  user, delete for admins; files are stored in the database (max 10 MB, PDF only).
 - **Admin-only** (admin1/admin2): an **audit log** recording every create, edit,
   delete, import and export, plus native **Excel (`.xlsx`) export** of the current
   view (written with the standard library — no third-party packages).
@@ -90,6 +92,9 @@ All `/api` routes except `/health` and `/login` require the session cookie set b
 | `PATCH`  | `/api/samples/{id}`   | auth   | Edit a sample (staff: restricted fields left intact). |
 | `GET`    | `/api/samples/{id}/receipt.pdf` | auth | Reception form PDF for a sample.       |
 | `GET`    | `/api/samples/{id}/form.docx`   | auth | Your Word form filled for a sample (needs `BIOBANK_FORM_TEMPLATE`). |
+| `GET`/`POST` | `/api/samples/{id}/attachments` | auth | List / upload PDF attachments (`?filename=`). |
+| `GET`    | `/api/attachments/{id}`         | auth  | Download an attachment.                 |
+| `DELETE` | `/api/attachments/{id}`         | admin | Delete an attachment.                   |
 | `DELETE` | `/api/samples/{id}`   | admin  | Delete a sample.                         |
 | `POST`   | `/api/change-password`| auth   | Change your own password.                |
 | `POST`   | `/api/import`         | admin  | Import `.xlsx`/`.csv` (`?filename=`).    |

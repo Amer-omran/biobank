@@ -76,6 +76,19 @@ CREATE TABLE IF NOT EXISTS samples (
     created_at    TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS attachments (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    sample_id    INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
+    filename     TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    size         INTEGER NOT NULL,
+    data         BLOB NOT NULL,
+    uploaded_by  TEXT,
+    uploaded_at  TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_att_sample ON attachments(sample_id);
+
 CREATE TABLE IF NOT EXISTS audit_log (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     ts          TEXT NOT NULL,
@@ -307,7 +320,8 @@ class Database:
     def list_samples(
         self, department: Optional[str] = None, search: Optional[str] = None
     ) -> list[dict[str, Any]]:
-        query = "SELECT * FROM samples"
+        query = ("SELECT s.*, (SELECT COUNT(*) FROM attachments a WHERE a.sample_id = s.id) "
+                 "AS attachments FROM samples s")
         clauses: list[str] = []
         params: list[Any] = []
         if department:
@@ -328,6 +342,51 @@ class Database:
     def delete_sample(self, sample_id: int) -> bool:
         with self._lock:
             cur = self.conn.execute("DELETE FROM samples WHERE id = ?", (sample_id,))
+            self.conn.commit()
+            return cur.rowcount > 0
+
+    # ----- attachments ----------------------------------------------------
+
+    def add_attachment(
+        self, sample_id: int, filename: str, data: bytes, uploaded_by: Optional[str],
+        content_type: str = "application/pdf",
+    ) -> dict[str, Any]:
+        with self._lock:
+            cur = self.conn.execute(
+                "INSERT INTO attachments (sample_id, filename, content_type, size, data, "
+                "uploaded_by, uploaded_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (sample_id, filename, content_type, len(data), sqlite3.Binary(data),
+                 uploaded_by, _iso(_now())),
+            )
+            self.conn.commit()
+            return self.get_attachment_meta(cur.lastrowid)  # type: ignore[arg-type]
+
+    def _attachment_meta_cols(self) -> str:
+        return "id, sample_id, filename, content_type, size, uploaded_by, uploaded_at"
+
+    def get_attachment_meta(self, att_id: int) -> Optional[dict[str, Any]]:
+        with self._lock:
+            row = self.conn.execute(
+                f"SELECT {self._attachment_meta_cols()} FROM attachments WHERE id = ?", (att_id,)
+            ).fetchone()
+        return dict(row) if row else None
+
+    def get_attachment(self, att_id: int) -> Optional[dict[str, Any]]:
+        with self._lock:
+            row = self.conn.execute("SELECT * FROM attachments WHERE id = ?", (att_id,)).fetchone()
+        return dict(row) if row else None
+
+    def list_attachments(self, sample_id: int) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self.conn.execute(
+                f"SELECT {self._attachment_meta_cols()} FROM attachments WHERE sample_id = ? ORDER BY id",
+                (sample_id,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def delete_attachment(self, att_id: int) -> bool:
+        with self._lock:
+            cur = self.conn.execute("DELETE FROM attachments WHERE id = ?", (att_id,))
             self.conn.commit()
             return cur.rowcount > 0
 

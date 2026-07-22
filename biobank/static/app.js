@@ -131,6 +131,7 @@ function renderRows(samples) {
     <td>${s.department ? `<span class="dept ${esc(s.department)}">${esc(s.department)}</span>` : "—"}</td>
     ${cell(s.barcode)}<td class="muted">${s.created_by ? esc(s.created_by) : "—"}</td>
     <td style="text-align:right; white-space:nowrap">
+      <button class="x" data-att="${s.id}" title="Attachments">📎${s.attachments ? " " + s.attachments : ""}</button>
       <button class="x" data-receipt="${s.id}" title="Reception form (PDF)">📄</button>
       <button class="x" data-form="${s.id}" title="Storage request form (Word)">📝</button>
       <button class="x" data-edit="${s.id}" title="Edit">✎</button>
@@ -292,6 +293,8 @@ $("#rec-form").addEventListener("submit", async e => {
   } catch (ex) { err.textContent = ex.message; }
 });
 $("#rows").addEventListener("click", async e => {
+  const att = e.target.closest("[data-att]");
+  if (att) { openAttachments(att.dataset.att); return; }
   const receipt = e.target.closest("[data-receipt]");
   if (receipt) { window.open("/api/samples/" + receipt.dataset.receipt + "/receipt.pdf", "_blank"); return; }
   const formBtn = e.target.closest("[data-form]");
@@ -393,6 +396,55 @@ $("#export-xlsx-btn").addEventListener("click", async () => {
     msg.className = "import-msg ok"; msg.textContent = "Excel exported.";
     if (me && me.role === "admin") await loadAudit();
   } catch (ex) { msg.className = "import-msg bad"; msg.textContent = "Export failed: " + ex.message; }
+});
+
+// ---- attachments (PDF files per sample) ------------------------------------
+let attSampleId = null;
+
+function fmtSize(n) {
+  if (n >= 1048576) return (n / 1048576).toFixed(1) + " MB";
+  if (n >= 1024) return Math.round(n / 1024) + " KB";
+  return n + " B";
+}
+async function openAttachments(id) {
+  attSampleId = id;
+  $("#att-title").textContent = "Attachments — sample #" + id;
+  $("#att-msg").textContent = ""; $("#att-msg").className = "import-msg";
+  $("#att-modal").hidden = false;
+  await loadAttachments();
+}
+async function loadAttachments() {
+  const admin = me && me.role === "admin";
+  try {
+    const { attachments } = await api("/api/samples/" + attSampleId + "/attachments");
+    $("#att-list").innerHTML = attachments.length ? attachments.map(a => `<div class="att-row">
+      <a class="fn" href="/api/attachments/${a.id}" target="_blank" title="${esc(a.filename)}">📄 ${esc(a.filename)}</a>
+      <span class="sp"></span>
+      <span class="meta">${fmtSize(a.size)} · ${esc(a.uploaded_by || "")}${a.uploaded_at ? " · " + esc(a.uploaded_at.slice(0, 10)) : ""}</span>
+      ${admin ? `<button class="x" data-del-att="${a.id}" title="Delete">✕</button>` : ""}
+    </div>`).join("") : `<div class="att-empty">No files attached yet.</div>`;
+  } catch (ex) { $("#att-list").innerHTML = `<div class="att-empty">${esc(ex.message)}</div>`; }
+}
+function closeAttachments() { $("#att-modal").hidden = true; refresh(); }
+$("#att-close").addEventListener("click", closeAttachments);
+$("#att-modal").addEventListener("click", e => { if (e.target.id === "att-modal") closeAttachments(); });
+$("#att-upload-btn").addEventListener("click", () => $("#att-file").click());
+$("#att-file").addEventListener("change", async e => {
+  const file = e.target.files[0]; if (!file) return;
+  const msg = $("#att-msg"); msg.className = "import-msg"; msg.textContent = "Uploading…";
+  try {
+    const buf = await file.arrayBuffer();
+    await api("/api/samples/" + attSampleId + "/attachments?filename=" + encodeURIComponent(file.name),
+      { method: "POST", raw: buf });
+    msg.className = "import-msg ok"; msg.textContent = "Uploaded.";
+    await loadAttachments();
+  } catch (ex) { msg.className = "import-msg bad"; msg.textContent = ex.message; }
+  e.target.value = "";
+});
+$("#att-list").addEventListener("click", async e => {
+  const b = e.target.closest("[data-del-att]"); if (!b) return;
+  try { await api("/api/attachments/" + b.dataset.delAtt, { method: "DELETE" }); await loadAttachments(); }
+  catch (ex) { $("#att-msg").className = "import-msg bad"; $("#att-msg").textContent = ex.message; }
 });
 
 // ---- boot ------------------------------------------------------------------
