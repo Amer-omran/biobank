@@ -89,6 +89,16 @@ CREATE TABLE IF NOT EXISTS attachments (
 
 CREATE INDEX IF NOT EXISTS idx_att_sample ON attachments(sample_id);
 
+CREATE TABLE IF NOT EXISTS barcodes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    sample_id   INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
+    barcode     TEXT NOT NULL,
+    added_by    TEXT,
+    added_at    TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_bc_sample ON barcodes(sample_id);
+
 CREATE TABLE IF NOT EXISTS audit_log (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     ts          TEXT NOT NULL,
@@ -320,8 +330,10 @@ class Database:
     def list_samples(
         self, department: Optional[str] = None, search: Optional[str] = None
     ) -> list[dict[str, Any]]:
-        query = ("SELECT s.*, (SELECT COUNT(*) FROM attachments a WHERE a.sample_id = s.id) "
-                 "AS attachments FROM samples s")
+        query = ("SELECT s.*, "
+                 "(SELECT COUNT(*) FROM attachments a WHERE a.sample_id = s.id) AS attachments, "
+                 "(SELECT COUNT(*) FROM barcodes b WHERE b.sample_id = s.id) AS barcode_count "
+                 "FROM samples s")
         clauses: list[str] = []
         params: list[Any] = []
         if department:
@@ -387,6 +399,36 @@ class Database:
     def delete_attachment(self, att_id: int) -> bool:
         with self._lock:
             cur = self.conn.execute("DELETE FROM attachments WHERE id = ?", (att_id,))
+            self.conn.commit()
+            return cur.rowcount > 0
+
+    # ----- barcodes (multiple per sample) ---------------------------------
+
+    def add_barcode(self, sample_id: int, barcode: str, added_by: Optional[str]) -> dict[str, Any]:
+        with self._lock:
+            cur = self.conn.execute(
+                "INSERT INTO barcodes (sample_id, barcode, added_by, added_at) VALUES (?, ?, ?, ?)",
+                (sample_id, barcode, added_by, _iso(_now())),
+            )
+            self.conn.commit()
+            row = self.conn.execute("SELECT * FROM barcodes WHERE id = ?", (cur.lastrowid,)).fetchone()
+        return dict(row)
+
+    def list_barcodes(self, sample_id: int) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self.conn.execute(
+                "SELECT * FROM barcodes WHERE sample_id = ? ORDER BY id", (sample_id,)
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_barcode(self, barcode_id: int) -> Optional[dict[str, Any]]:
+        with self._lock:
+            row = self.conn.execute("SELECT * FROM barcodes WHERE id = ?", (barcode_id,)).fetchone()
+        return dict(row) if row else None
+
+    def delete_barcode(self, barcode_id: int) -> bool:
+        with self._lock:
+            cur = self.conn.execute("DELETE FROM barcodes WHERE id = ?", (barcode_id,))
             self.conn.commit()
             return cur.rowcount > 0
 

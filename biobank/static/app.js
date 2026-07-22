@@ -122,7 +122,8 @@ function renderRows(samples) {
   const cell = v => v == null || v === "" ? '<td class="muted">—</td>' : `<td>${esc(v)}</td>`;
   const num = v => `<td class="num">${v == null || v === "" ? "—" : esc(v)}</td>`;
   $("#rows").innerHTML = samples.length ? samples.map(s => `<tr>
-    <td class="num">${s.id}</td>${num(s.lab_number)}
+    <td class="num">${s.id}</td>
+    <td class="num">${s.lab_number ? `<a href="#" data-lab="${esc(s.lab_number)}" style="color:var(--accent);text-decoration:none">${esc(s.lab_number)}</a>` : "—"}</td>
     <td class="key">${s.sample_number ? esc(s.sample_number) : "—"}</td>
     ${num(s.storage_date)}${num(s.storage_method)}${num(s.freezer_no)}${num(s.shelf_no)}${num(s.plate_no)}
     ${cell(s.area)}${cell(s.animal_type)}${cell(s.sample_type)}
@@ -131,6 +132,7 @@ function renderRows(samples) {
     <td>${s.department ? `<span class="dept ${esc(s.department)}">${esc(s.department)}</span>` : "—"}</td>
     ${cell(s.barcode)}<td class="muted">${s.created_by ? esc(s.created_by) : "—"}</td>
     <td style="text-align:right; white-space:nowrap">
+      <button class="x" data-bc="${s.id}" title="Barcodes">🏷️${s.barcode_count ? " " + s.barcode_count : ""}</button>
       <button class="x" data-att="${s.id}" title="Attachments">📎${s.attachments ? " " + s.attachments : ""}</button>
       <button class="x" data-receipt="${s.id}" title="Reception form (PDF)">📄</button>
       <button class="x" data-form="${s.id}" title="Storage request form (Word)">📝</button>
@@ -262,7 +264,14 @@ $("#cancel-edit").addEventListener("click", cancelEdit);
 $("#rec-form").addEventListener("change", e => { if (e.target.name === "isolated") updateConditional(); });
 $("#rec-msg").addEventListener("click", e => {
   const a = e.target.closest("[data-form-link]");
-  if (a) { e.preventDefault(); downloadForm(a.dataset.formLink); }
+  if (a) { e.preventDefault(); downloadForm(a.dataset.formLink); return; }
+  const sl = e.target.closest("[data-samelab]");
+  if (sl) {
+    e.preventDefault();
+    const form = $("#rec-form");
+    if (form.elements["lab_number"]) form.elements["lab_number"].value = sl.dataset.samelab;
+    if (form.elements["sample_number"]) form.elements["sample_number"].focus();
+  }
 });
 
 $("#rec-form").addEventListener("submit", async e => {
@@ -287,12 +296,17 @@ $("#rec-form").addEventListener("submit", async e => {
       $("#rec-msg").className = "import-msg";
       $("#rec-msg").innerHTML = `Saved ✓ &nbsp;` +
         `<a href="/api/samples/${created.id}/receipt.pdf" target="_blank" style="${lk}">📄 PDF</a>` +
-        ` &nbsp;·&nbsp; <a href="#" data-form-link="${created.id}" style="${lk}">📝 Storage form (Word)</a>`;
+        ` &nbsp;·&nbsp; <a href="#" data-form-link="${created.id}" style="${lk}">📝 Storage form (Word)</a>` +
+        (body.lab_number ? ` &nbsp;·&nbsp; <a href="#" data-samelab="${esc(body.lab_number)}" style="${lk}">➕ Add another under lab #${esc(body.lab_number)}</a>` : "");
     }
     await reloadData();
   } catch (ex) { err.textContent = ex.message; }
 });
 $("#rows").addEventListener("click", async e => {
+  const lab = e.target.closest("[data-lab]");
+  if (lab) { e.preventDefault(); $("#search").value = lab.dataset.lab; searchTerm = lab.dataset.lab; refresh(); return; }
+  const bc = e.target.closest("[data-bc]");
+  if (bc) { openBarcodes(bc.dataset.bc); return; }
   const att = e.target.closest("[data-att]");
   if (att) { openAttachments(att.dataset.att); return; }
   const receipt = e.target.closest("[data-receipt]");
@@ -445,6 +459,55 @@ $("#att-list").addEventListener("click", async e => {
   const b = e.target.closest("[data-del-att]"); if (!b) return;
   try { await api("/api/attachments/" + b.dataset.delAtt, { method: "DELETE" }); await loadAttachments(); }
   catch (ex) { $("#att-msg").className = "import-msg bad"; $("#att-msg").textContent = ex.message; }
+});
+
+// ---- barcodes (multiple per sample, admin-managed) -------------------------
+let bcSampleId = null;
+
+function openBarcodes(id) {
+  bcSampleId = id;
+  const s = lastSamples.find(x => String(x.id) === String(id)) || {};
+  const lab = s.lab_number ? "Lab #" + esc(s.lab_number) : "record #" + id;
+  const sn = s.sample_number ? " · Sample " + esc(s.sample_number) : "";
+  $("#bc-title").innerHTML = "Barcodes — " + lab + sn;
+  $("#bc-msg").textContent = ""; $("#bc-msg").className = "import-msg";
+  $("#bc-input").value = "";
+  $("#bc-modal").hidden = false;
+  loadBarcodes(s.barcode);
+}
+async function loadBarcodes(primary) {
+  const admin = me && me.role === "admin";
+  try {
+    const { barcodes } = await api("/api/samples/" + bcSampleId + "/barcodes");
+    let html = "";
+    if (primary) html += `<div class="att-row"><span class="fn" style="cursor:default">🏷️ ${esc(primary)}</span>
+      <span class="sp"></span><span class="meta">primary</span></div>`;
+    html += barcodes.map(b => `<div class="att-row">
+      <span class="fn" style="cursor:default">🏷️ ${esc(b.barcode)}</span><span class="sp"></span>
+      <span class="meta">${esc(b.added_by || "")}${b.added_at ? " · " + esc(b.added_at.slice(0, 10)) : ""}</span>
+      ${admin ? `<button class="x" data-del-bc="${b.id}" title="Delete">✕</button>` : ""}
+    </div>`).join("");
+    $("#bc-list").innerHTML = html || `<div class="att-empty">No barcodes yet.</div>`;
+  } catch (ex) { $("#bc-list").innerHTML = `<div class="att-empty">${esc(ex.message)}</div>`; }
+}
+function primaryOf(id) { return (lastSamples.find(x => String(x.id) === String(id)) || {}).barcode; }
+function closeBarcodes() { $("#bc-modal").hidden = true; refresh(); }
+$("#bc-close").addEventListener("click", closeBarcodes);
+$("#bc-modal").addEventListener("click", e => { if (e.target.id === "bc-modal") closeBarcodes(); });
+async function addBarcode() {
+  const val = $("#bc-input").value.trim(); if (!val) return;
+  const msg = $("#bc-msg"); msg.className = "import-msg";
+  try {
+    await api("/api/samples/" + bcSampleId + "/barcodes", { method: "POST", body: { barcode: val } });
+    $("#bc-input").value = ""; await loadBarcodes(primaryOf(bcSampleId));
+  } catch (ex) { msg.className = "import-msg bad"; msg.textContent = ex.message; }
+}
+$("#bc-add-btn").addEventListener("click", addBarcode);
+$("#bc-input").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addBarcode(); } });
+$("#bc-list").addEventListener("click", async e => {
+  const b = e.target.closest("[data-del-bc]"); if (!b) return;
+  try { await api("/api/barcodes/" + b.dataset.delBc, { method: "DELETE" }); await loadBarcodes(primaryOf(bcSampleId)); }
+  catch (ex) { $("#bc-msg").className = "import-msg bad"; $("#bc-msg").textContent = ex.message; }
 });
 
 // ---- boot ------------------------------------------------------------------

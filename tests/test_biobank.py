@@ -366,6 +366,51 @@ class ApiTests(unittest.TestCase):
         update_entry = next(e for e in body["audit"] if e["action"] == "update" and e["sample_id"] == rec["id"])
         self.assertIn("sample_type", update_entry["summary"])
 
+    def test_multiple_barcodes_flow(self):
+        admin = self._login("admin1")
+        _, rec, _ = self._req("POST", "/api/samples", {
+            "lab_number": "264", "sample_number": "S-1", "area": "Riyadh",
+            "animal_type": "Cattle", "sample_type": "blood", "department": "virology"}, token=admin)
+        sid = rec["id"]
+        # admin adds two barcodes
+        self.assertEqual(self._req("POST", f"/api/samples/{sid}/barcodes",
+                                   {"barcode": "BC-264-1"}, token=admin)[0], 201)
+        self.assertEqual(self._req("POST", f"/api/samples/{sid}/barcodes",
+                                   {"barcode": "BC-264-2"}, token=admin)[0], 201)
+        # listed, and the sample reports the count
+        body = self._req("GET", f"/api/samples/{sid}/barcodes", token=admin)[1]
+        self.assertEqual([b["barcode"] for b in body["barcodes"]], ["BC-264-1", "BC-264-2"])
+        listing = self._req("GET", "/api/samples?search=264", token=admin)[1]["samples"]
+        self.assertEqual(next(s for s in listing if s["id"] == sid)["barcode_count"], 2)
+        # staff can view but not add or delete
+        staff = self._login("user1")
+        self.assertEqual(self._req("GET", f"/api/samples/{sid}/barcodes", token=staff)[0], 200)
+        self.assertEqual(self._req("POST", f"/api/samples/{sid}/barcodes",
+                                   {"barcode": "X"}, token=staff)[0], 403)
+        # admin deletes one
+        bid = body["barcodes"][0]["id"]
+        self.assertEqual(self._req("DELETE", f"/api/barcodes/{bid}", token=staff)[0], 403)
+        self.assertEqual(self._req("DELETE", f"/api/barcodes/{bid}", token=admin)[0], 200)
+        self.assertEqual(len(self._req("GET", f"/api/samples/{sid}/barcodes", token=admin)[1]["barcodes"]), 1)
+
+    def test_barcodes_cascade_on_sample_delete(self):
+        admin = self._login("admin1")
+        _, rec, _ = self._req("POST", "/api/samples", {
+            "area": "Hail", "animal_type": "Camel", "sample_type": "tissue",
+            "department": "Parasitic"}, token=admin)
+        bid = self._req("POST", f"/api/samples/{rec['id']}/barcodes",
+                        {"barcode": "BC-9"}, token=admin)[1]["id"]
+        self._req("DELETE", f"/api/samples/{rec['id']}", token=admin)
+        self.assertEqual(len(self.db_barcodes(bid)), 0)
+
+    def db_barcodes(self, bid):
+        # helper: query via a fresh connection to confirm cascade delete
+        import sqlite3
+        con = sqlite3.connect(self.tmp.name)
+        rows = con.execute("SELECT * FROM barcodes WHERE id = ?", (bid,)).fetchall()
+        con.close()
+        return rows
+
     def test_attachments_flow(self):
         pdf = b"%PDF-1.4 test document"
         token = self._login("user1")           # staff can attach

@@ -374,6 +374,32 @@ class BiobankHandler(BaseHTTPRequestHandler):
             self.db.add_audit(user["username"], "detach", att["sample_id"], f"removed {att['filename']}")
         self._send_json(200 if ok else 404, {"deleted": ok})
 
+    def h_list_barcodes(self, match: "re.Match[str]", user: Any) -> None:
+        sid = int(match.group("id"))
+        if self.db.get_sample(sid) is None:
+            self._send_json(404, {"error": "sample not found"})
+            return
+        self._send_json(200, {"barcodes": self.db.list_barcodes(sid)})
+
+    def h_add_barcode(self, match: "re.Match[str]", user: Any) -> None:
+        sid = int(match.group("id"))
+        if self.db.get_sample(sid) is None:
+            self._send_json(404, {"error": "sample not found"})
+            return
+        barcode = str(self._read_json().get("barcode", "")).strip()
+        if not barcode:
+            raise ValueError("barcode is required")
+        bc = self.db.add_barcode(sid, barcode, user["username"])
+        self.db.add_audit(user["username"], "barcode-add", sid, f"added barcode {barcode}")
+        self._send_json(201, bc)
+
+    def h_delete_barcode(self, match: "re.Match[str]", user: Any) -> None:
+        bc = self.db.get_barcode(int(match.group("id")))
+        ok = self.db.delete_barcode(int(match.group("id")))
+        if ok and bc:
+            self.db.add_audit(user["username"], "barcode-remove", bc["sample_id"], f"removed barcode {bc['barcode']}")
+        self._send_json(200 if ok else 404, {"deleted": ok})
+
     def h_audit(self, match: "re.Match[str]", user: Any) -> None:
         self._send_json(200, {"audit": self.db.list_audit()})
 
@@ -449,6 +475,9 @@ def _build_routes() -> list[Route]:
         ("POST", p(r"/api/samples/(?P<id>\d+)/attachments"), "h_upload_attachment", False),
         ("GET", p(r"/api/attachments/(?P<id>\d+)"), "h_download_attachment", False),
         ("DELETE", p(r"/api/attachments/(?P<id>\d+)"), "h_delete_attachment", True),
+        ("GET", p(r"/api/samples/(?P<id>\d+)/barcodes"), "h_list_barcodes", False),
+        ("POST", p(r"/api/samples/(?P<id>\d+)/barcodes"), "h_add_barcode", True),
+        ("DELETE", p(r"/api/barcodes/(?P<id>\d+)"), "h_delete_barcode", True),
         ("PATCH", p(r"/api/samples/(?P<id>\d+)"), "h_update_sample", False),
         ("DELETE", p(r"/api/samples/(?P<id>\d+)"), "h_delete_sample", True),
         ("POST", p(r"/api/change-password"), "h_change_password", False),

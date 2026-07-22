@@ -266,6 +266,30 @@ def make_app(
             db.add_audit(user["username"], "detach", att["sample_id"], f"removed {att['filename']}")
         return json_resp(200 if ok else 404, {"deleted": ok})
 
+    def h_list_barcodes(m, user, ctx):
+        sid = int(m.group("id"))
+        if db.get_sample(sid) is None:
+            return json_resp(404, {"error": "sample not found"})
+        return json_resp(200, {"barcodes": db.list_barcodes(sid)})
+
+    def h_add_barcode(m, user, ctx):
+        sid = int(m.group("id"))
+        if db.get_sample(sid) is None:
+            return json_resp(404, {"error": "sample not found"})
+        barcode = str(read_json(ctx["raw"]).get("barcode", "")).strip()
+        if not barcode:
+            raise HttpError(400, "barcode is required")
+        bc = db.add_barcode(sid, barcode, user["username"])
+        db.add_audit(user["username"], "barcode-add", sid, f"added barcode {barcode}")
+        return json_resp(201, bc)
+
+    def h_delete_barcode(m, user, ctx):
+        bc = db.get_barcode(int(m.group("id")))
+        ok = db.delete_barcode(int(m.group("id")))
+        if ok and bc:
+            db.add_audit(user["username"], "barcode-remove", bc["sample_id"], f"removed barcode {bc['barcode']}")
+        return json_resp(200 if ok else 404, {"deleted": ok})
+
     def h_audit(m, user, ctx):
         return json_resp(200, {"audit": db.list_audit()})
 
@@ -326,6 +350,9 @@ def make_app(
         ("POST", re.compile(r"/api/samples/(?P<id>\d+)/attachments"), h_upload_attachment, True, False),
         ("GET", re.compile(r"/api/attachments/(?P<id>\d+)"), h_download_attachment, True, False),
         ("DELETE", re.compile(r"/api/attachments/(?P<id>\d+)"), h_delete_attachment, True, True),
+        ("GET", re.compile(r"/api/samples/(?P<id>\d+)/barcodes"), h_list_barcodes, True, False),
+        ("POST", re.compile(r"/api/samples/(?P<id>\d+)/barcodes"), h_add_barcode, True, True),
+        ("DELETE", re.compile(r"/api/barcodes/(?P<id>\d+)"), h_delete_barcode, True, True),
         ("PATCH", re.compile(r"/api/samples/(?P<id>\d+)"), h_update_sample, True, False),
         ("DELETE", re.compile(r"/api/samples/(?P<id>\d+)"), h_delete_sample, True, True),
         ("POST", re.compile(r"/api/change-password"), h_change_password, True, False),

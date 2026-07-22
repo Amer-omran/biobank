@@ -34,6 +34,10 @@ so it runs on any stock Python 3.9+ install.
   its fields populated (stdlib `zipfile`/`xml`, template kept out of the repo).
 - **PDF attachments** per sample (e.g. test results): upload/view/download for any
   user, delete for admins; files are stored in the database (max 10 MB, PDF only).
+- **Multiple barcodes per sample** (aliquots), admin-managed, alongside the primary
+  barcode — with a per-row count and a modal showing the sample/lab linkage.
+- **One lab number, many samples**: enter several samples under a lab number (an
+  "add another under lab #" shortcut), and click a lab number to see all its samples.
 - **Admin-only** (admin1/admin2): an **audit log** recording every create, edit,
   delete, import and export, plus native **Excel (`.xlsx`) export** of the current
   view (written with the standard library — no third-party packages).
@@ -95,6 +99,9 @@ All `/api` routes except `/health` and `/login` require the session cookie set b
 | `GET`/`POST` | `/api/samples/{id}/attachments` | auth | List / upload PDF attachments (`?filename=`). |
 | `GET`    | `/api/attachments/{id}`         | auth  | Download an attachment.                 |
 | `DELETE` | `/api/attachments/{id}`         | admin | Delete an attachment.                   |
+| `GET`    | `/api/samples/{id}/barcodes`    | auth  | List a sample's barcodes.               |
+| `POST`   | `/api/samples/{id}/barcodes`    | admin | Add a barcode to a sample.              |
+| `DELETE` | `/api/barcodes/{id}`            | admin | Delete a barcode.                       |
 | `DELETE` | `/api/samples/{id}`   | admin  | Delete a sample.                         |
 | `POST`   | `/api/change-password`| auth   | Change your own password.                |
 | `POST`   | `/api/import`         | admin  | Import `.xlsx`/`.csv` (`?filename=`).    |

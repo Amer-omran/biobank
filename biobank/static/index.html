@@ -381,6 +381,19 @@
     </div>
   </div>
 
+  <div id="bc-modal" class="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-h"><h2 id="bc-title">Barcodes</h2>
+        <button class="tbtn" id="bc-close" title="Close" aria-label="Close">✕</button></div>
+      <div class="att-list" id="bc-list"></div>
+      <div class="att-upload admin-only">
+        <input id="bc-input" placeholder="New barcode" autocomplete="off" style="flex:1">
+        <button class="btn" id="bc-add-btn">Add barcode</button>
+        <span class="import-msg" id="bc-msg"></span>
+      </div>
+    </div>
+  </div>
+
   <datalist id="dl-area"></datalist>
   <datalist id="dl-animal_type"></datalist>
   <datalist id="dl-sample_type"></datalist>
