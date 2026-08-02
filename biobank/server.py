@@ -27,7 +27,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
-from .amr import panel_summary, screen_fasta
+from Bioinformatic.amr import panel_summary, screen_fasta
+
 from .db import Database
 from .importer import parse_file
 from .options import OPTIONS, RESTRICTED_FIELDS, SAMPLE_FIELDS

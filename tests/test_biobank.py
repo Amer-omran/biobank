@@ -17,7 +17,7 @@ from urllib.error import HTTPError
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from biobank import amr
+from Bioinformatic import amr
 from biobank.db import Database, hash_password
 from biobank.importer import normalize_date, parse_csv, parse_xlsx, rows_to_records
 from biobank.server import make_server, seed_users

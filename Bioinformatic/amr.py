@@ -23,9 +23,9 @@ network access or external database downloads.
 
 Command line
 ------------
-    python3 -m biobank.amr sequences.fasta [more.fasta ...]
-    python3 -m biobank.amr --json sequences.fasta
-    cat sequences.fasta | python3 -m biobank.amr -
+    python3 -m Bioinformatic.amr sequences.fasta [more.fasta ...]
+    python3 -m Bioinformatic.amr --json sequences.fasta
+    cat sequences.fasta | python3 -m Bioinformatic.amr -
 """
 
 from __future__ import annotations
@@ -441,7 +441,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             paths.append(arg)
 
     if not paths:
-        print("usage: python3 -m biobank.amr [--json] <file.fasta> [...]  ('-' for stdin)",
+        print("usage: python3 -m Bioinformatic.amr [--json] <file.fasta> [...]  ('-' for stdin)",
               file=sys.stderr)
         return 2
 
