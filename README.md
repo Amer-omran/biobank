@@ -26,6 +26,12 @@ so it runs on any stock Python 3.9+ install.
   Excel date serials, and maps many column-name spellings.
 - **JSON REST API** plus a single-page **web UI** (login screen, live stats, search
   and department filter), light/dark themed.
+- **AMR screening** — scan nucleotide/protein **FASTA** for antimicrobial-resistance
+  genes against a bundled marker panel (β-lactamases, carbapenemases, `mecA`, `vanA/B`,
+  `mcr-1`, tetracycline, sulfonamide, aminoglycoside, macrolide, fluoroquinolone,
+  phenicol and trimethoprim markers). Both DNA strands and protein input are
+  handled; reports gene, drug class, mechanism, % identity and position. Pure
+  standard library — no BLAST or external database.
 
 ## Quick start
 
@@ -65,10 +71,36 @@ All `/api` routes except `/health` and `/login` require the session cookie set b
 | `POST`   | `/api/samples`        | auth   | Create a sample (staff: restricted fields ignored). |
 | `DELETE` | `/api/samples/{id}`   | admin  | Delete a sample.                         |
 | `POST`   | `/api/import`         | admin  | Import `.xlsx`/`.csv` (`?filename=`).    |
+| `GET`    | `/api/amr/panel`      | auth   | Describe the bundled AMR marker panel.   |
+| `POST`   | `/api/amr`            | auth   | Screen a FASTA body for AMR genes.       |
 | `GET`    | `/api/users`          | admin  | List user accounts.                      |
 | `POST`   | `/api/users`          | admin  | Create an account (username, name, role, password). |
 | `DELETE` | `/api/users/{id}`     | admin  | Delete an account (not self / last admin). |
 | `GET`    | `/api/health`         | public | Health check.                            |
+
+## AMR screening
+
+Screen a FASTA file for antimicrobial-resistance genes from the command line:
+
+```bash
+python3 -m biobank.amr isolate.fasta          # human-readable report
+python3 -m biobank.amr --json isolate.fasta   # machine-readable JSON
+cat isolate.fasta | python3 -m biobank.amr -  # read from stdin
+```
+
+Or paste/upload a sequence in the **AMR screening** card of the web UI, or POST it
+to the API:
+
+```bash
+curl -b cookies.txt --data-binary @isolate.fasta \
+     http://127.0.0.1:8000/api/amr
+```
+
+Nucleotide input is searched on both strands; protein input is matched against the
+translated markers. A hit is reported when an aligned marker clears 90 % identity
+and 80 % coverage (a BLAST-style seed-and-extend match). The bundled panel is a
+compact **demonstration** reference — not a replacement for curated databases such
+as CARD, ResFinder or AMRFinderPlus.
 
 ## Project layout
 
@@ -78,6 +110,7 @@ biobank/
   options.py        schema, option lists, import aliases
   db.py             SQLite layer: users, sessions, samples, stats
   importer.py       CSV + native .xlsx parsing (stdlib only)
+  amr.py            FASTA parsing + AMR marker screening (stdlib only)
   server.py         HTTP server: auth, RBAC, API, static files
   static/
     index.html      single-page web UI

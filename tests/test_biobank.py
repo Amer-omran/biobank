@@ -17,6 +17,7 @@ from urllib.error import HTTPError
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from biobank import amr
 from biobank.db import Database, hash_password
 from biobank.importer import normalize_date, parse_csv, parse_xlsx, rows_to_records
 from biobank.server import make_server, seed_users
@@ -290,6 +291,29 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertIn("own account", err["error"])
 
+    def test_amr_requires_auth(self):
+        status, _, _ = self._req("POST", "/api/amr", raw=b">x\nACGT")
+        self.assertEqual(status, 401)
+        status, _, _ = self._req("GET", "/api/amr/panel")
+        self.assertEqual(status, 401)
+
+    def test_amr_panel_and_screen(self):
+        token = self._login("user1")  # staff may screen (read-only, no DB write)
+        status, panel, _ = self._req("GET", "/api/amr/panel", token=token)
+        self.assertEqual(status, 200)
+        self.assertGreater(len(panel["panel"]), 0)
+
+        ndm = next(m for m in amr.AMR_PANEL if m.gene == "blaNDM").nt
+        fasta = f">contig\nACGTACGT{ndm}TTTT\n".encode()
+        status, report, _ = self._req("POST", "/api/amr", raw=fasta, token=token)
+        self.assertEqual(status, 200, report)
+        self.assertIn("blaNDM", report["summary"]["resistance_genes"])
+
+    def test_amr_empty_body_rejected(self):
+        token = self._login("user1")
+        status, err, _ = self._req("POST", "/api/amr", raw=b"", token=token)
+        self.assertEqual(status, 400)
+
     def test_index_and_options(self):
         url = f"http://127.0.0.1:{self.port}/"
         with urllib.request.urlopen(url) as resp:
@@ -299,6 +323,81 @@ class ApiTests(unittest.TestCase):
         status, opts, _ = self._req("GET", "/api/options", token=token)
         self.assertIn("area", opts["options"])
         self.assertIn("barcode", opts["restricted"])
+
+
+# ----------------------------------------------------------------------------
+# AMR screening engine
+# ----------------------------------------------------------------------------
+class AmrTests(unittest.TestCase):
+    def _marker(self, gene):
+        return next(m for m in amr.AMR_PANEL if m.gene == gene)
+
+    def test_reverse_complement_and_translate(self):
+        self.assertEqual(amr.reverse_complement("ATGC"), "GCAT")
+        self.assertEqual(amr.reverse_complement("AATTCCGG"), "CCGGAATT")
+        self.assertEqual(amr.translate("ATGAAATAA"), "MK*")
+        self.assertTrue(amr.is_nucleotide("ACGTACGTNN"))
+        self.assertFalse(amr.is_nucleotide("MKLPQRSTVWY"))
+
+    def test_parse_fasta(self):
+        text = ">seq1 desc\nACGT\nACGT\n\n>seq2\nTTTT\n"
+        recs = amr.parse_fasta(text)
+        self.assertEqual(recs, [("seq1 desc", "ACGTACGT"), ("seq2", "TTTT")])
+        # headerless block is accepted and labelled
+        self.assertEqual(amr.parse_fasta("ACGTACGT")[0][0], "sequence_1")
+
+    def test_exact_nucleotide_hit(self):
+        ndm = self._marker("blaNDM").nt
+        contig = "ACGTACGTACGT" + ndm + "TTTTGGGGCCCC"
+        report = amr.screen_fasta(f">c1\n{contig}\n")
+        genes = report["summary"]["resistance_genes"]
+        self.assertIn("blaNDM", genes)
+        hit = next(h for h in report["hits"] if h["gene"] == "blaNDM")
+        self.assertEqual(hit["identity"], 100.0)
+        self.assertEqual(hit["strand"], "+")
+        self.assertEqual(hit["start"], 13)  # 1-based, after the 12 bp flank
+
+    def test_mismatch_tolerant_hit(self):
+        teta = list(self._marker("tetA").nt)
+        teta[5] = "A" if teta[5] != "A" else "C"   # one mismatch
+        seq = "".join(teta)
+        report = amr.screen_fasta(f">m\n{seq}\n")
+        hit = next(h for h in report["hits"] if h["gene"] == "tetA")
+        self.assertGreater(hit["identity"], 90.0)
+        self.assertLess(hit["identity"], 100.0)
+
+    def test_reverse_strand_hit(self):
+        kpc = self._marker("blaKPC").nt
+        rc = amr.reverse_complement("AAAA" + kpc + "TTTT")
+        report = amr.screen_fasta(f">rev\n{rc}\n")
+        hit = next(h for h in report["hits"] if h["gene"] == "blaKPC")
+        self.assertEqual(hit["strand"], "-")
+        self.assertEqual(hit["identity"], 100.0)
+
+    def test_protein_hit(self):
+        vim = self._marker("blaVIM")
+        prot = "MSTVSQ" + vim.aa + "GGWW"
+        report = amr.screen_fasta(f">p\n{prot}\n")
+        hit = next(h for h in report["hits"] if h["gene"] == "blaVIM")
+        self.assertEqual(hit["via"], "protein")
+        self.assertEqual(report["sequences"][0]["type"], "protein")
+
+    def test_no_false_positive_on_random(self):
+        import random
+        random.seed(42)
+        rnd = "".join(random.choice("ACGT") for _ in range(4000))
+        report = amr.screen_fasta(f">rand\n{rnd}\n")
+        self.assertEqual(report["summary"]["total_hits"], 0)
+
+    def test_empty_input_raises(self):
+        with self.assertRaises(ValueError):
+            amr.screen_fasta("   \n\n")
+
+    def test_panel_summary_hides_sequences(self):
+        panel = amr.panel_summary()
+        self.assertEqual(len(panel), len(amr.AMR_PANEL))
+        self.assertNotIn("marker", panel[0])
+        self.assertIn("drug_class", panel[0])
 
 
 class SeedTests(unittest.TestCase):
