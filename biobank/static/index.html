@@ -96,15 +96,10 @@
   label.f { display:flex; flex-direction:column; gap:4px; font-size:11px; color:var(--txt-faint);
     text-transform:uppercase; letter-spacing:.05em; min-width:0; }
   label.f.req > span::after { content:" *"; color:var(--accent); }
-  input, select, textarea { font:inherit; font-size:13px; color:var(--txt); background:var(--panel);
+  input, select { font:inherit; font-size:13px; color:var(--txt); background:var(--panel);
     border:1px solid var(--line); border-radius:9px; padding:8px 10px; width:100%; min-width:0; }
-  input::placeholder, textarea::placeholder { color:var(--txt-faint); }
-  input:focus, select:focus, textarea:focus { outline:2px solid var(--accent); outline-offset:1px; border-color:transparent; }
-  .amr-summary { display:flex; flex-wrap:wrap; gap:8px; padding:12px 18px; border-bottom:1px solid var(--line-soft); }
-  .amr-summary .tag { font-size:11.5px; padding:4px 10px; border-radius:20px; background:var(--accent-soft);
-    color:var(--accent); border:1px solid var(--accent); font-weight:600; }
-  .amr-summary .tag.neutral { background:var(--panel-2); color:var(--txt-mut); border-color:var(--line); }
-  td.gene { font-family:var(--mono); color:var(--accent); font-weight:600; }
+  input::placeholder { color:var(--txt-faint); }
+  input:focus, select:focus { outline:2px solid var(--accent); outline-offset:1px; border-color:transparent; }
   .mono-in { font-family:var(--mono); }
   .pick { background-image:linear-gradient(45deg,transparent 50%,var(--txt-faint) 50%),
     linear-gradient(135deg,var(--txt-faint) 50%,transparent 50%);
@@ -261,37 +256,6 @@
           <th>Department</th><th>Barcode</th><th>By</th><th></th>
         </tr></thead>
         <tbody id="rows"></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="card" id="amr-card">
-    <div class="card-h">
-      <h2>Antimicrobial resistance (AMR) screening</h2>
-      <span class="hint" id="amr-panel-hint">FASTA in · resistance genes out</span>
-    </div>
-    <form class="entry" id="amr-form" novalidate>
-      <label class="f" style="text-transform:none; letter-spacing:0">
-        <span style="text-transform:uppercase; letter-spacing:.05em">Paste FASTA (nucleotide or protein)</span>
-        <textarea id="amr-input" class="mono-in" rows="5" placeholder=">contig_1&#10;ATGGAATTGCCCAATATT…"
-          style="resize:vertical; min-height:96px"></textarea>
-      </label>
-      <div class="formfoot">
-        <button class="btn" type="submit">🧫&nbsp; Screen for AMR genes</button>
-        <button class="btn ghost" type="button" id="amr-file-btn">⬆&nbsp; Upload .fasta</button>
-        <button class="btn ghost" type="button" id="amr-sample-btn">Load example</button>
-        <input type="file" id="amr-file" accept=".fasta,.fa,.fna,.ffn,.faa,.txt" hidden>
-        <span class="import-msg" id="amr-msg" role="status" aria-live="polite"></span>
-      </div>
-    </form>
-    <div id="amr-summary"></div>
-    <div class="scroll">
-      <table>
-        <thead><tr>
-          <th>Query</th><th>Gene</th><th>Drug class</th><th>Mechanism</th>
-          <th>Ident %</th><th>Cov %</th><th>Strand</th><th>Position</th><th>Via</th>
-        </tr></thead>
-        <tbody id="amr-rows"><tr><td colspan="9" class="empty">Paste or upload FASTA, then screen.</td></tr></tbody>
       </table>
     </div>
   </section>

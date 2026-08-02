@@ -27,8 +27,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
-from Bioinformatic.amr import panel_summary, screen_fasta
-
 from .db import Database
 from .importer import parse_file
 from .options import OPTIONS, RESTRICTED_FIELDS, SAMPLE_FIELDS
@@ -253,18 +251,6 @@ class BiobankHandler(BaseHTTPRequestHandler):
         ok = self.db.delete_sample(int(match.group("id")))
         self._send_json(200 if ok else 404, {"deleted": ok})
 
-    # ----- AMR screening --------------------------------------------------
-
-    def h_amr_panel(self, match: "re.Match[str]", user: Any) -> None:
-        self._send_json(200, {"panel": panel_summary()})
-
-    def h_amr_screen(self, match: "re.Match[str]", user: Any) -> None:
-        raw = self._read_bytes()
-        if not raw:
-            raise ValueError("no FASTA sequence provided")
-        report = screen_fasta(raw)
-        self._send_json(200, report)
-
     def h_import(self, match: "re.Match[str]", user: Any) -> None:
         filename = self._query().get("filename", ["upload.xlsx"])[0]
         raw = self._read_bytes()
@@ -298,8 +284,6 @@ def _build_routes() -> list[Route]:
         ("POST", p(r"/api/samples"), "h_create_sample", False),
         ("DELETE", p(r"/api/samples/(?P<id>\d+)"), "h_delete_sample", True),
         ("POST", p(r"/api/import"), "h_import", True),
-        ("GET", p(r"/api/amr/panel"), "h_amr_panel", False),
-        ("POST", p(r"/api/amr"), "h_amr_screen", False),
     ]
 
 

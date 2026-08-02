@@ -129,7 +129,6 @@ async function enterApp() {
   const { options } = await api("/api/options");
   fillDatalists(options);
   await refresh();
-  await loadAmrPanel();
   if (me && me.role === "admin") await loadUsers();
 }
 
@@ -237,76 +236,6 @@ $("#file").addEventListener("change", async e => {
   } catch (ex) { msg.className = "import-msg bad"; msg.textContent = "Import failed: " + ex.message; }
   e.target.value = "";
 });
-
-// ---- AMR screening ---------------------------------------------------------
-const AMR_EXAMPLE = [
-  ">contig_1 Klebsiella pneumoniae fragment",
-  "ACGTACGTTTGGCCAATTATGGAATTGCCCAATATTATGCACCCGGTCGCGAAGCTGAGCACC",
-  "GCATTAGCCGCTGCAGGGGCCCCAAAATTTTATGAAATCTAACAATGCGCTCATCGTCATCCT",
-  "CGGCACCGTCACCCTGGATGCTGTAGGCACGTACGT",
-].join("\n");
-
-function renderAmr(report) {
-  const s = report.summary;
-  const summary = $("#amr-summary");
-  const tags = [
-    `<span class="tag neutral">${s.sequences_screened} sequence(s)</span>`,
-    `<span class="tag neutral">${s.total_hits} hit(s)</span>`,
-    ...report.summary.drug_classes.map(c => `<span class="tag">${esc(c)}</span>`),
-  ];
-  summary.className = "amr-summary";
-  summary.innerHTML = s.total_hits
-    ? tags.join("")
-    : `<span class="tag neutral">No known resistance markers detected in ${s.sequences_screened} sequence(s).</span>`;
-
-  const hits = report.hits;
-  $("#amr-rows").innerHTML = hits.length ? hits.map(h => `<tr>
-    <td>${esc(h.query)}</td>
-    <td class="gene">${esc(h.gene)}</td>
-    <td>${esc(h.drug_class)}</td>
-    <td class="muted">${esc(h.mechanism)}</td>
-    <td class="num">${h.identity}</td>
-    <td class="num">${h.coverage}</td>
-    <td class="num">${esc(h.strand)}</td>
-    <td class="num">${h.start}–${h.end}</td>
-    <td class="muted">${esc(h.via)}</td>
-  </tr>`).join("") : `<tr><td colspan="9" class="empty">No resistance markers detected.</td></tr>`;
-}
-
-async function screenAmr(text) {
-  const msg = $("#amr-msg"); msg.className = "import-msg"; msg.textContent = "Screening…";
-  try {
-    const report = await api("/api/amr", { method: "POST", raw: text });
-    renderAmr(report);
-    msg.className = "import-msg ok";
-    msg.textContent = `Screened ${report.summary.sequences_screened} sequence(s) · ` +
-      `${report.summary.resistance_genes.length} resistance gene(s) detected.`;
-  } catch (ex) { msg.className = "import-msg bad"; msg.textContent = "Screening failed: " + ex.message; }
-}
-
-$("#amr-form").addEventListener("submit", e => {
-  e.preventDefault();
-  const text = $("#amr-input").value.trim();
-  if (!text) { $("#amr-msg").className = "import-msg bad"; $("#amr-msg").textContent = "Paste or upload a FASTA sequence first."; return; }
-  screenAmr(text);
-});
-$("#amr-sample-btn").addEventListener("click", () => { $("#amr-input").value = AMR_EXAMPLE; });
-$("#amr-file-btn").addEventListener("click", () => $("#amr-file").click());
-$("#amr-file").addEventListener("change", async e => {
-  const file = e.target.files[0]; if (!file) return;
-  const text = await file.text();
-  $("#amr-input").value = text;
-  await screenAmr(text);
-  e.target.value = "";
-});
-
-async function loadAmrPanel() {
-  try {
-    const { panel } = await api("/api/amr/panel");
-    const classes = [...new Set(panel.map(p => p.drug_class))].length;
-    $("#amr-panel-hint").textContent = `${panel.length} markers · ${classes} drug classes`;
-  } catch {}
-}
 
 // ---- boot ------------------------------------------------------------------
 buildForm();
