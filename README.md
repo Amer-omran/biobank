@@ -99,3 +99,12 @@ random tokens with an 8-hour expiry, delivered as `HttpOnly`, `SameSite=Lax`
 cookies. Role restrictions are enforced in the server, not the browser. For a
 public deployment, run behind HTTPS (add the `Secure` cookie flag) and set a
 strong `BIOBANK_SEED_PASSWORD`.
+
+---
+
+## Saudi Restaurant Sentiment & Food Preference Analytics Platform
+
+A separate, self-contained Arabic (RTL) Streamlit project lives in
+[`saudi_restaurant_analytics/`](saudi_restaurant_analytics/README.md): aspect-based sentiment analysis
+of Saudi restaurant reviews, dish extraction, comparisons, and Excel/PDF reports. See its README
+(Arabic) for installation and usage.

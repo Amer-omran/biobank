@@ -1,0 +1,6 @@
+data/*.db
+data/hf_export/
+models/*.joblib
+models/*.json
+__pycache__/
+.pytest_cache/
