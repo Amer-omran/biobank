@@ -95,7 +95,7 @@ def test_evidence_is_original_clause(analyzer):
 def test_intensifier_attaches_to_nearest_opinion(analyzer):
     result = analyzer.analyze("مندي لذيذ مرة والأسعار معقولة")
     scores = {a.aspect: a.score for a in result.aspects}
-    assert scores["food_quality"] > 1.5 and scores["price"] == pytest.approx(0.6)
+    assert scores["food_quality"] > 1.5 and scores["price"] == pytest.approx(0.8)
 
 
 def test_confidence_bounds_and_mixed_lowers_confidence(analyzer):
@@ -109,3 +109,17 @@ def test_confidence_bounds_and_mixed_lowers_confidence(analyzer):
 def test_empty_text(analyzer):
     result = analyzer.analyze("")
     assert result.label == "neutral" and result.is_uncertain and result.aspects == []
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("جيد جدا", "positive"), ("الخدمة كويسة", "positive"), ("لا بأس فيه", "positive"),
+    ("المطعم دايم زحمة والاكل عادي", "neutral"),
+])
+def test_v11_lexicon_additions(analyzer, text, expected):
+    assert analyzer.analyze(text).label == expected
+
+
+def test_speed_words_default_to_service_unless_delivery(analyzer):
+    assert ("service", "negative") in aspects_of(analyzer.analyze("يوجد تأخير في الطلب"))
+    assert ("delivery", "negative") in aspects_of(analyzer.analyze("التوصيل تأخر ساعة"))
+    assert ("service", "positive") in aspects_of(analyzer.analyze("الخدمة سريعة"))

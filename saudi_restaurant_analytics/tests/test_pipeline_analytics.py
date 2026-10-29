@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from sra import analytics, database, demo_data, pipeline
+from sra import analytics, config, database, demo_data, pipeline
 from sra.analytics import Filters
 
 
@@ -115,5 +115,5 @@ def test_pipeline_with_injected_model(conn):
     demo_data.load_demo_into_db(conn)
     counts = pipeline.analyze_reviews(conn, engine="sklearn", model=FakeModel())
     assert counts["negative"] == counts["analyzed"] == counts["uncertain"]
-    assert counts["model_version"] == "fake-1+lexicon-absa-v1.0"
+    assert counts["model_version"] == f"fake-1+{config.LEXICON_MODEL_VERSION}"
     assert conn.execute("SELECT COUNT(*) FROM aspects").fetchone()[0] > 0
