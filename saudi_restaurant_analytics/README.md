@@ -217,6 +217,27 @@ python scripts/train_model.py --from-ratings
 
 ---
 
+### التقييم على AQTE
+
+بعد فحص المجموعة تبيّن أنها **14,783 مراجعة حقيقية لـ 774 مطعمًا في السعودية** من Google Maps،
+وكل مراجعة فيها قائمة آراء: `{"aspect": "الطعام", "avg_sentiment": 1, "quotes": "حلو الاكل"}`
+(29 فئة جوانب، و3 أقطاب)، مع عمود `rate` من 1 إلى 5. الرخصة CC BY 4.0، فاذكر المجموعة في مراجعك.
+
+نزّل `train_split.json` و`test_split.json` من تبويب «Files and versions»، ثم:
+
+```bash
+python scripts/prepare_aqte.py test_split.json
+```
+يُنشئ `test_split_platform.csv` للاستيراد في المنصة، مع عمود `gold_label` (الشعور المشتق من آراء AQTE)
+لتختاره في خانة «عمود الوسم».
+
+```bash
+python scripts/evaluate_aqte.py test_split.json --train train_split.json
+```
+يقيّم الشعور العام (القاموس مقابل Scikit-learn)، واكتشاف كل جانب (Precision وRecall وF1)، ودقة
+شعور الجوانب، ويحفظ النتائج في `data/aqte_evaluation.xlsx`. ربط فئات AQTE الـ 29 بجوانب المنصة
+السبعة موجود في `ASPECT_MAP` داخل `sra/aqte.py`، وهو قرار منهجي اذكره في التقرير.
+
 ## نموذج Hugging Face الاختياري
 
 - النموذج المقترح: `CAMeL-Lab/bert-base-arabic-camelbert-da-sentiment` (CAMeLBERT مضبوط لتصنيف
@@ -276,7 +297,7 @@ SQLite في `data/restaurant_analytics.db` (يمكن تغيير المسار ب�
 python -m pytest
 ```
 
-تغطي الاختبارات (108 اختبارات): معالجة النص، النفي والجوانب المتعددة، استخراج الوجبات وعدم اختراعها،
+تغطي الاختبارات (116 اختبارًا): معالجة النص، النفي والجوانب المتعددة، استخراج الوجبات وعدم اختراعها،
 قيود قاعدة البيانات والحذف المتسلسل، الاستيراد بترميزات مختلفة، التحليلات والترتيب، النماذج، التقارير
 (Excel وPDF)، موصل API (بطلبات وهمية دون إنترنت)، وتشغيل كل صفحات الواجهة دون أخطاء.
 
