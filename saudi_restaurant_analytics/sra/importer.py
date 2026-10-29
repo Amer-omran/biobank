@@ -27,7 +27,8 @@ from .text_processing import (
 )
 
 CSV_ENCODINGS = ("utf-8-sig", "utf-8", "cp1256", "windows-1256", "iso-8859-6")
-SUPPORTED_EXTENSIONS = (".csv", ".tsv", ".txt", ".xlsx", ".xlsm", ".xls")
+# parquet وjson/jsonl هي الصيغ التي تُنشر بها مجموعات Hugging Face غالبًا
+SUPPORTED_EXTENSIONS = (".csv", ".tsv", ".txt", ".xlsx", ".xlsm", ".xls", ".parquet", ".json", ".jsonl")
 
 # كلمات تساعد على اقتراح الأعمدة (مطبعة، والمقارنة بالاحتواء)
 COLUMN_HINTS = {
@@ -128,6 +129,19 @@ def read_table(source, filename: str | None = None, sheet_name=0) -> pd.DataFram
             df = pd.read_excel(io.BytesIO(raw), sheet_name=sheet_name)
         except Exception as exc:  # noqa: BLE001 - نعرض سبب الخطأ للمستخدم بالعربية
             raise ValueError(f"تعذر قراءة ملف Excel: {exc}") from exc
+    elif ext == ".parquet":
+        try:
+            df = pd.read_parquet(io.BytesIO(raw))
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError(f"تعذر قراءة ملف Parquet: {exc}") from exc
+    elif ext in (".json", ".jsonl"):
+        text = raw.decode("utf-8-sig")
+        try:
+            # jsonl: سجل JSON في كل سطر؛ json: قائمة سجلات
+            lines = ext == ".jsonl" or not text.lstrip().startswith("[")
+            df = pd.read_json(io.StringIO(text), lines=lines, dtype=False)
+        except ValueError as exc:
+            raise ValueError(f"تعذر قراءة ملف JSON: {exc}") from exc
     else:
         df = None
         last_error = None

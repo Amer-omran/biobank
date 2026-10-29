@@ -24,7 +24,7 @@ tab_file, tab_api, tab_manage = st.tabs(["📄 رفع ملف", "🔌 واجهة 
 
 # ============================================================== رفع ملف
 with tab_file:
-    uploaded = st.file_uploader("اختر الملف", type=["csv", "tsv", "txt", "xlsx", "xlsm", "xls"])
+    uploaded = st.file_uploader("اختر الملف", type=["csv", "tsv", "txt", "xlsx", "xlsm", "xls", "parquet", "json", "jsonl"])
     if uploaded is not None:
         sheet = 0
         if uploaded.name.lower().endswith((".xlsx", ".xlsm", ".xls")):

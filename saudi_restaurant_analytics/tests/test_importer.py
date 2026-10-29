@@ -90,3 +90,17 @@ def test_ratings_to_labels():
 def test_all_empty_texts_is_error():
     report = prepare_dataframe(pd.DataFrame({"t": ["", None, " "]}), ColumnMapping(text="t"))
     assert not report.ok and report.empty_text_rows == 3 and report.valid_rows == 0
+
+
+def test_read_parquet_and_json(tmp_path):
+    df = pd.DataFrame({"text": ["الأكل لذيذ", "الخدمة سيئة"], "label": [1, 0],
+                       "triplets": [[{"a": "الأكل"}], []]})
+    df.to_parquet(tmp_path / "train.parquet")
+    loaded = read_table(tmp_path / "train.parquet")
+    assert loaded["text"].tolist() == ["الأكل لذيذ", "الخدمة سيئة"]
+    assert loaded.iloc[0]["triplets"] == '[{"a": "الأكل"}]'
+    (tmp_path / "d.jsonl").write_text(
+        '{"text": "حلو", "label": 1}\n{"text": "زفت", "label": 0}\n', encoding="utf-8")
+    assert read_table(tmp_path / "d.jsonl")["text"].tolist() == ["حلو", "زفت"]
+    (tmp_path / "d.json").write_text('[{"text": "ممتاز"}]', encoding="utf-8")
+    assert read_table(tmp_path / "d.json")["text"].tolist() == ["ممتاز"]
