@@ -259,3 +259,92 @@ def report_to_excel(report: dict) -> bytes:
         for ws in writer.book.worksheets:
             ws.sheet_view.rightToLeft = True
     return buffer.getvalue()
+
+
+# =========================================================== تحليل الأخطاء
+def majority_baseline(gold: list[str]) -> dict:
+    """خط الأساس: نموذج «غبي» يتنبأ دائمًا بالصنف الأكثر شيوعًا. أي نموذج مفيد يجب أن يتفوق عليه."""
+    if not gold:
+        return {"label": None, "accuracy": 0.0, "macro_f1": 0.0}
+    label = max(set(gold), key=gold.count)
+    return _classification(gold, [label] * len(gold)) | {"label": label}
+
+
+def gold_aspect_quotes(opinions: list[dict], aspect_map: dict = ASPECT_MAP) -> dict[str, list[dict]]:
+    """عبارات AQTE لكل جانب من جوانب المنصة (لمعرفة ما فات المحلل)."""
+    out: dict[str, list[dict]] = {}
+    for op in opinions:
+        aspect = aspect_map.get(str(op.get("aspect", "")).strip())
+        if aspect is not None:
+            out.setdefault(aspect, []).append(op)
+    return out
+
+
+def _known_terms() -> set[str]:
+    from .lexicon import get_lexicon
+
+    lex = get_lexicon()
+    return set(lex.opinions) | set(lex.aspect_single) | set(lex.conditional) | lex.negators | \
+        set(lex.intensifiers) | set(lex.diminishers)
+
+
+def error_analysis(df: pd.DataFrame, analyzer, top_terms: int = 30) -> dict[str, pd.DataFrame]:
+    """يجمع أخطاء المحلل في جداول، ويقترح كلمات متكررة في العبارات الفائتة غير موجودة في القاموس.
+
+    استخدمها على ملف التدريب فقط، ثم أضف المقترحات المناسبة إلى sra/lexicon.py بعد مراجعتها بنفسك.
+    """
+    from collections import Counter
+
+    from .analytics import STOPWORDS
+    from .text_processing import normalize_arabic, token_variants, tokenize
+
+    known = _known_terms()
+    missed_rows, polarity_rows, overall_rows = [], [], []
+    missed_counter: dict[str, Counter] = {a: Counter() for a in config.ASPECTS}
+    for text, opinions in zip(df["review_text"], df["opinions"]):
+        result = analyzer.analyze(text)
+        pred = predicted_aspects(result)
+        gold = gold_aspects(opinions)
+        quotes = gold_aspect_quotes(opinions)
+        gold_label = gold_overall(opinions)
+        if gold_label and gold_label != result.label:
+            overall_rows.append({"review_text": text, "gold": gold_label, "predicted": result.label,
+                                 "confidence": result.confidence, "cues": "، ".join(result.cues)})
+        for aspect, label in gold.items():
+            if aspect not in pred:
+                for op in quotes.get(aspect, []):
+                    quote = str(op.get("quotes", ""))
+                    missed_rows.append({"aspect": aspect, "aqte_aspect": op.get("aspect"), "quote": quote,
+                                        "avg_sentiment": op.get("avg_sentiment"), "review_text": text})
+                    for tok in tokenize(quote):
+                        norm = normalize_arabic(tok)
+                        if len(norm) > 2 and norm not in STOPWORDS and not any(v in known for v in token_variants(norm)):
+                            missed_counter[aspect][norm] += 1
+            elif label != CONFLICT and pred[aspect] != label:
+                polarity_rows.append({
+                    "aspect": aspect, "gold": label, "predicted": pred[aspect],
+                    "quotes": " | ".join(str(op.get("quotes", "")) for op in quotes.get(aspect, [])),
+                    "cues": "، ".join(result.cues), "review_text": text,
+                })
+    suggestions = [{"aspect": a, "term": term, "count": n}
+                   for a, counter in missed_counter.items() for term, n in counter.most_common(top_terms)]
+    return {
+        "missed_aspects": pd.DataFrame(missed_rows),
+        "polarity_errors": pd.DataFrame(polarity_rows),
+        "overall_errors": pd.DataFrame(overall_rows),
+        "suggested_terms": pd.DataFrame(suggestions, columns=["aspect", "term", "count"]),
+    }
+
+
+def errors_to_excel(errors: dict[str, pd.DataFrame]) -> bytes:
+    names = {"suggested_terms": "كلمات مقترحة", "missed_aspects": "جوانب فائتة",
+             "polarity_errors": "أخطاء شعور الجوانب", "overall_errors": "أخطاء الشعور العام"}
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        for key, sheet in names.items():
+            frame = errors[key]
+            (frame if not frame.empty else pd.DataFrame({"ملاحظة": ["لا توجد أخطاء"]})).to_excel(
+                writer, sheet_name=sheet, index=False)
+        for ws in writer.book.worksheets:
+            ws.sheet_view.rightToLeft = True
+    return buffer.getvalue()

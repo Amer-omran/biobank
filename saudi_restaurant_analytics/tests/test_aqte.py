@@ -78,3 +78,24 @@ def test_evaluate_end_to_end(analyzer, tmp_path):
     assert aspects.loc["food_quality", "gold_mentions"] == 1
     assert 0 <= report["aspects_micro"]["f1"] <= 1
     assert aqte.report_to_excel(report)[:2] == b"PK"
+
+
+def test_majority_baseline():
+    base = aqte.majority_baseline(["positive"] * 7 + ["negative"] * 3)
+    assert base["label"] == "positive" and base["accuracy"] == 0.7
+
+
+def test_error_analysis(analyzer):
+    df = pd.DataFrame([
+        {"review_text": "العمالة محترفين والطاولات نظيفة",
+         "opinions": [{"aspect": "طاقم العمل", "avg_sentiment": 1, "quotes": "العمالة محترفين"},
+                      {"aspect": "النظافة", "avg_sentiment": 1, "quotes": "الطاولات نظيفة"}]},
+        {"review_text": "الخدمة ممتازة", "opinions": [{"aspect": "الخدمة", "avg_sentiment": -1, "quotes": "الخدمة ممتازة"}]},
+    ])
+    errors = aqte.error_analysis(df, analyzer)
+    assert set(errors) == {"missed_aspects", "polarity_errors", "overall_errors", "suggested_terms"}
+    assert "service" in set(errors["missed_aspects"]["aspect"])
+    # «العمالة» معروفة (تطابق «عمال»)؛ الناقص هو كلمة الرأي «محترفين»
+    assert "محترفين" in set(errors["suggested_terms"]["term"])
+    assert len(errors["polarity_errors"]) == 1
+    assert aqte.errors_to_excel(errors)[:2] == b"PK"

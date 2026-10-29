@@ -19,17 +19,30 @@ from pathlib import Path
 
 import _path  # noqa: F401
 
-from sra.aqte import evaluate, gold_overall, load_aqte, report_to_excel
+from sra.aqte import evaluate, gold_overall, load_aqte, majority_baseline, report_to_excel
 from sra.dishes import DishExtractor
 from sra.importer import ratings_to_labels
 from sra.ml_model import SklearnSentimentModel, train_and_evaluate
 from sra.sentiment import LexiconSentimentAnalyzer
 
 
-def show_overall(title, models):
-    print(f"\n=== الشعور العام مقارنةً بـ {title} ===")
+LABEL_EN = {"positive": "pos", "negative": "neg", "neutral": "neu"}
+
+
+def show_overall(title, models, baseline):
+    # الطباعة بالإنجليزية لأن موجه أوامر ويندوز لا يعرض العربية غالبًا؛ التفاصيل العربية في ملف Excel
+    print(f"\n=== Overall sentiment vs {title} ===")
+    print(f"  baseline  Accuracy={baseline['accuracy']:.3f}  Macro-F1={baseline['macro_f1']:.3f}"
+          f"  (always predicts '{baseline['label']}')")
     for name, m in models.items():
-        print(f"  {name:8s}  Accuracy={m['accuracy']:.3f}  Macro-F1={m['macro_f1']:.3f}  (ن={m['n']})")
+        print(f"  {name:8s}  Accuracy={m['accuracy']:.3f}  Macro-F1={m['macro_f1']:.3f}  (n={m['n']})")
+        per_class = "  ".join(f"{LABEL_EN[c]}: F1={m['report'][c]['f1-score']:.2f} n={int(m['report'][c]['support'])}"
+                              for c in m["labels"])
+        print(f"            {per_class}")
+        header = "gold\\pred " + " ".join(f"{LABEL_EN[c]:>6s}" for c in m["labels"])
+        print("            " + header)
+        for c, row in zip(m["labels"], m["confusion_matrix"]):
+            print("            " + f"{LABEL_EN[c]:>9s} " + " ".join(f"{v:6d}" for v in row))
 
 
 def main():
@@ -45,7 +58,7 @@ def main():
     test = load_aqte(args.test)
     if args.limit:
         test = test.head(args.limit)
-    print(f"مراجعات الاختبار: {len(test)}")
+    print(f"Test reviews: {len(test)}")
 
     model = None
     if args.train:
@@ -55,7 +68,7 @@ def main():
         else:
             labels = train["opinions"].map(gold_overall)
         keep = labels.notna()
-        print(f"تدريب Scikit-learn على {int(keep.sum())} مراجعة (وسوم من {args.label_source})...")
+        print(f"Training scikit-learn on {int(keep.sum())} reviews (labels: {args.label_source})...")
         pipeline, meta = train_and_evaluate(train.loc[keep, "review_text"], labels[keep],
                                             label_source=f"aqte-{args.label_source}")
         model = SklearnSentimentModel(pipeline, meta)
@@ -63,20 +76,22 @@ def main():
     analyzer = LexiconSentimentAnalyzer(DishExtractor.from_csv())
     report = evaluate(test, analyzer, model)
 
-    show_overall("آراء AQTE الموسومة", report["overall_vs_opinions"])
+    gold_op = [g for g in test["opinions"].map(gold_overall) if g]
+    show_overall("AQTE opinions", report["overall_vs_opinions"], majority_baseline(gold_op))
     if "overall_vs_rating" in report:
-        show_overall("التقييم الرقمي", report["overall_vs_rating"])
-    print("\n=== اكتشاف الجوانب (لكل جانب) ===")
-    table = report["aspects"][["aspect_ar", "gold_mentions", "precision", "recall", "f1", "polarity_accuracy"]]
+        gold_rt = [g for g in ratings_to_labels(test["rate"].astype(float)) if g]
+        show_overall("star rating", report["overall_vs_rating"], majority_baseline(gold_rt))
+    print("\n=== Aspect detection (per aspect) ===")
+    table = report["aspects"][["aspect", "gold_mentions", "precision", "recall", "f1", "polarity_accuracy"]]
     print(table.to_string(index=False))
     m = report["aspects_micro"]
-    print(f"\nإجمالي الجوانب: Precision={m['precision']:.3f}  Recall={m['recall']:.3f}  F1={m['f1']:.3f}  "
-          f"دقة الشعور للجوانب المكتشفة={m['polarity_accuracy']:.3f}")
+    print(f"\nAll aspects: Precision={m['precision']:.3f}  Recall={m['recall']:.3f}  F1={m['f1']:.3f}  "
+          f"polarity accuracy on detected aspects={m['polarity_accuracy']:.3f}")
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_bytes(report_to_excel(report))
-    print(f"\nحُفظت النتائج التفصيلية في: {out}")
+    print(f"\nDetailed results (Arabic) saved to: {out}")
 
 
 if __name__ == "__main__":
