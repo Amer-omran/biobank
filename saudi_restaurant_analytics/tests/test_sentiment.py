@@ -122,3 +122,22 @@ def test_speed_words_default_to_service_unless_delivery(analyzer):
     assert ("service", "negative") in aspects_of(analyzer.analyze("يوجد تأخير في الطلب"))
     assert ("delivery", "negative") in aspects_of(analyzer.analyze("التوصيل تأخر ساعة"))
     assert ("service", "positive") in aspects_of(analyzer.analyze("الخدمة سريعة"))
+
+
+def test_single_word_phrases_are_matched(analyzer):
+    # خطأ سابق: حلقة العبارات كانت تبدأ من كلمتين فلا تُطابق العبارات ذات الكلمة الواحدة
+    assert analyzer.analyze("لاباس").label == "positive"
+    assert ("service", "positive") in aspects_of(analyzer.analyze("ماقصروا"))
+
+
+def test_ta_marbuta_before_suffix(analyzer):
+    # خدمة + هم = خدمتهم: يجب أن تُعرف كجانب الخدمة
+    assert ("service", "positive") in aspects_of(analyzer.analyze("خدمتهم ممتازة"))
+    assert ("cleanliness", "positive") in aspects_of(analyzer.analyze("نظافتهم ممتازة"))
+
+
+def test_v13_additions(analyzer):
+    assert ("price", "neutral") in aspects_of(analyzer.analyze("الاسعار متوسطة"))
+    assert ("quantity", "negative") in aspects_of(analyzer.analyze("الكمية ما تكفي"))
+    assert ("cleanliness", "negative") in aspects_of(analyzer.analyze("المكان يحتاج نظافة"))
+    assert ("delivery", "negative") in aspects_of(analyzer.analyze("التغليف سيء"))

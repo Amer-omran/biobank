@@ -205,6 +205,9 @@ def token_variants(token: str) -> list[str]:
             stem = variant[: -len(suffix)]
             if variant.endswith(suffix) and len(stem) >= 3:
                 with_suffixes.append(stem)
+                # التاء المربوطة تُكتب تاءً مفتوحة مع الضمير: خدمتهم -> خدمت -> خدمه
+                if stem.endswith("ت"):
+                    with_suffixes.append(stem[:-1] + "ه")
     seen: set[str] = set()
     ordered = []
     for v in variants + with_suffixes:

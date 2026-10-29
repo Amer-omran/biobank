@@ -77,3 +77,8 @@ def test_token_variants_strip_prefixes_and_keep_full_word_first():
     variants = token_variants("والخدمه")
     assert variants[0] == "والخدمه" and "خدمه" in variants
     assert token_variants("بارد")[0] == "بارد"
+
+
+def test_token_variants_restore_ta_marbuta():
+    assert "خدمه" in token_variants("خدمتهم")
+    assert "كميه" in token_variants("كميتها")

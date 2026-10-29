@@ -180,7 +180,7 @@ class LexiconSentimentAnalyzer:
         i = 0
         while i < len(tokens):
             matched = False
-            for n in range(min(lex.max_phrase_len, len(tokens) - i), 1, -1):
+            for n in range(min(lex.max_phrase_len, len(tokens) - i), 0, -1):
                 key = tuple(tokens[i:i + n])
                 if key in lex.phrases and not any(used[i:i + n]):
                     score, aspect = lex.phrases[key]
