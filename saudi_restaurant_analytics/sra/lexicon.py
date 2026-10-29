@@ -61,7 +61,7 @@ NEGATIVE_WORDS = {
     "رديئة": (1.5, None), "تعبان": (1.0, None), "تعبانة": (1.0, None), "فاشل": (1.5, None),
     "فاشلة": (1.5, None), "خايب": (1.3, None), "خايبة": (1.3, None), "خربان": (1.0, None),
     "مقرف": (1.8, None), "مقرفة": (1.8, None), "يقرف": (1.8, None), "ندمت": (1.5, None),
-    "خسارة": (1.3, None), "مخيب": (1.3, None), "مخيبة": (1.3, None),
+    "خسارة": (1.3, None), "مخيب": (1.3, None), "مخيبة": (1.3, None), "عادي": (0.3, None),
     "ناقص": (1.0, None), "ناقصة": (1.0, None),
     "خايس": (1.8, "food_quality"), "خايسة": (1.8, "food_quality"), "معفن": (2.0, "food_quality"),
     "بايت": (1.5, "food_quality"), "بايتة": (1.5, "food_quality"), "ماصخ": (1.3, "food_quality"),
@@ -79,7 +79,7 @@ NEGATIVE_WORDS = {
     "وقح": (1.5, "service"), "وقحين": (1.5, "service"),
     "مهمل": (1.3, None), "مهملين": (1.3, None), "عصبي": (1.0, "service"), "متكبر": (1.0, "service"),
     "ازعاج": (1.0, "ambiance"), "مزعج": (1.0, "ambiance"), "مزعجة": (1.0, "ambiance"),
-    "ضيق": (0.7, "ambiance"), "خانق": (0.8, "ambiance"),
+    "زحمة": (0.7, "ambiance"), "ضيق": (0.7, "ambiance"), "خانق": (0.8, "ambiance"),
     "bad": (1.5, None), "terrible": (2.0, None), "worst": (2.0, None), "disgusting": (2.0, None),
     "slow": (1.2, None), "expensive": (1.2, "price"), "dirty": (1.5, "cleanliness"),
 }

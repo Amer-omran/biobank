@@ -47,7 +47,7 @@ MIN_REVIEWS_FOR_RANKING = 20
 
 # --------------------------------------------------------- إصدارات النماذج
 LEXICON_MODEL_NAME = "lexicon"
-LEXICON_MODEL_VERSION = "lexicon-absa-v1.1"
+LEXICON_MODEL_VERSION = "lexicon-absa-v1.2"
 
 # نموذج Transformers المقترح (اختياري). يجب مراجعة بطاقة النموذج قبل الاعتماد عليه؛
 # انظر README قسم «نموذج Hugging Face».

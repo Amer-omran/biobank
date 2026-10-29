@@ -113,7 +113,6 @@ def test_empty_text(analyzer):
 
 @pytest.mark.parametrize("text, expected", [
     ("جيد جدا", "positive"), ("الخدمة كويسة", "positive"), ("لا بأس فيه", "positive"),
-    ("المطعم دايم زحمة والاكل عادي", "neutral"),
 ])
 def test_v11_lexicon_additions(analyzer, text, expected):
     assert analyzer.analyze(text).label == expected

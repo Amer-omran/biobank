@@ -7,8 +7,10 @@
 ملاحظات منهجية:
 - AQTE فيها 29 فئة جوانب، والمنصة 7 جوانب. ربط الفئات في ASPECT_MAP قرار من الباحث
   يُذكر في التقرير ويمكن تعديله. الفئات العامة (المطعم، التجربة...) لا تُربط بجانب.
-- avg_sentiment رقم: الموجب إيجابي، والسالب سلبي، والصفر محايد. نتعامل مع أي قيمة رقمية
-  (حتى الكسرية) بالإشارة فقط.
+- avg_sentiment رقم بين 0 و1 في AQTE: صفر سلبي، 0.5 محايد، 1 إيجابي (القيم المرئية في عارض
+  البيانات 0 و0.5 و1، ومثال «ماعطوني الا بخمسة...» شكوى قيمتها 0). يكتشف load_aqte المقياس تلقائيًا:
+  إن وُجدت قيم سالبة فالمقياس من -1 إلى 1، وإلا فمن 0 إلى 1. كل قيمة تُحوَّل إلى مقياس موحد
+  (signed_sentiment من -1 إلى 1) ويُحكم بإشارتها.
 - الشعور العام «المرجعي» للمراجعة يُشتق بطريقتين ونقيس الاثنتين:
   1) من آراء AQTE الموسومة (مجموع avg_sentiment) — أقرب إلى نص المراجعة.
   2) من التقييم الرقمي rate (1-2 سلبي، 3 محايد، 4-5 إيجابي) — وسم تقريبي.
@@ -80,7 +82,38 @@ def load_aqte(source) -> pd.DataFrame:
     df = df.copy()
     df["opinions"] = df["opinions"].map(_parse_opinions)
     df["review_text"] = df["review_text"].fillna("").astype(str)
-    return df[df["review_text"].str.strip() != ""].reset_index(drop=True)
+    df = df[df["review_text"].str.strip() != ""].reset_index(drop=True)
+    scale, counts = detect_scale(df["opinions"])
+    for opinions in df["opinions"]:
+        for op in opinions:
+            if op.get("avg_sentiment") is not None:
+                value = float(op["avg_sentiment"])
+                op["signed_sentiment"] = 2 * value - 1 if scale == "unit" else value
+    df.attrs["sentiment_scale"] = scale
+    df.attrs["sentiment_values"] = counts
+    return df
+
+
+def detect_scale(opinion_lists) -> tuple[str, dict]:
+    """يحدد مقياس avg_sentiment: unit (0..1، و0.5 محايد) أو signed (-1..1، والصفر محايد)."""
+    values = [float(op["avg_sentiment"]) for ops in opinion_lists for op in ops
+              if op.get("avg_sentiment") is not None]
+    counts = dict(sorted(pd.Series(values, dtype=float).round(3).value_counts().to_dict().items()))
+    if not values:
+        return "signed", counts
+    if min(values) < 0:
+        if max(values) > 1:
+            raise ValueError(f"مقياس avg_sentiment غير متوقع: من {min(values)} إلى {max(values)}")
+        return "signed", counts
+    if max(values) > 1:
+        raise ValueError(f"مقياس avg_sentiment غير متوقع: من {min(values)} إلى {max(values)}")
+    return "unit", counts
+
+
+def _signed(op: dict) -> float | None:
+    """قيمة الشعور على المقياس الموحد. السجلات غير المقروءة بـ load_aqte تُعامل كمقياس -1..1."""
+    value = op.get("signed_sentiment", op.get("avg_sentiment"))
+    return None if value is None else float(value)
 
 
 # ======================================================== الوسوم المرجعية
@@ -98,9 +131,10 @@ def gold_aspects(opinions: list[dict], aspect_map: dict = ASPECT_MAP) -> dict[st
     seen: dict[str, set[str]] = {}
     for op in opinions:
         aspect = aspect_map.get(str(op.get("aspect", "")).strip())
-        if aspect is None or op.get("avg_sentiment") is None:
+        value = _signed(op)
+        if aspect is None or value is None:
             continue
-        seen.setdefault(aspect, set()).add(polarity(op["avg_sentiment"]))
+        seen.setdefault(aspect, set()).add(polarity(value))
     result = {}
     for aspect, labels in seen.items():
         polar = labels - {"neutral"}
@@ -115,7 +149,7 @@ def gold_aspects(opinions: list[dict], aspect_map: dict = ASPECT_MAP) -> dict[st
 
 def gold_overall(opinions: list[dict]) -> str | None:
     """الشعور العام من مجموع آراء AQTE (كل الفئات، بما فيها العامة)."""
-    values = [float(op["avg_sentiment"]) for op in opinions if op.get("avg_sentiment") is not None]
+    values = [v for v in (_signed(op) for op in opinions) if v is not None]
     if not values:
         return None
     return polarity(sum(values))

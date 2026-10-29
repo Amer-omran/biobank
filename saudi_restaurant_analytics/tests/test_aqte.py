@@ -99,3 +99,37 @@ def test_error_analysis(analyzer):
     assert "محترفين" in set(errors["suggested_terms"]["term"])
     assert len(errors["polarity_errors"]) == 1
     assert aqte.errors_to_excel(errors)[:2] == b"PK"
+
+
+UNIT_SCALE = [  # المقياس الظاهر في AQTE: 0 سلبي، 0.5 محايد، 1 إيجابي
+    {"review_text": "اكلهم سيء", "rate": "1",
+     "opinions": [{"aspect": "الطعام", "avg_sentiment": 0, "quotes": "اكلهم سيء"}]},
+    {"review_text": "السعر عادي", "rate": "3",
+     "opinions": [{"aspect": "السعر", "avg_sentiment": 0.5, "quotes": "السعر عادي"}]},
+    {"review_text": "حلو الاكل", "rate": "5",
+     "opinions": [{"aspect": "الطعام", "avg_sentiment": 1, "quotes": "حلو الاكل"}]},
+]
+
+
+def test_unit_scale_detected_and_zero_is_negative(tmp_path):
+    (tmp_path / "u.json").write_text(json.dumps(UNIT_SCALE, ensure_ascii=False), encoding="utf-8")
+    df = load_aqte(tmp_path / "u.json")
+    assert df.attrs["sentiment_scale"] == "unit"
+    assert df.attrs["sentiment_values"] == {0.0: 1, 0.5: 1, 1.0: 1}
+    assert [gold_overall(o) for o in df["opinions"]] == ["negative", "neutral", "positive"]
+    assert gold_aspects(df.iloc[0]["opinions"]) == {"food_quality": "negative"}
+    assert gold_aspects(df.iloc[1]["opinions"]) == {"price": "neutral"}
+
+
+def test_signed_scale_still_supported(tmp_path):
+    (tmp_path / "s.json").write_text(json.dumps(RECORDS, ensure_ascii=False), encoding="utf-8")
+    df = load_aqte(tmp_path / "s.json")
+    assert df.attrs["sentiment_scale"] == "signed"
+    assert gold_overall(df.iloc[1]["opinions"]) == "negative"
+
+
+def test_unexpected_scale_rejected(tmp_path):
+    bad = [{"review_text": "x", "opinions": [{"aspect": "الطعام", "avg_sentiment": 4}]}]
+    (tmp_path / "b.json").write_text(json.dumps(bad, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(ValueError, match="مقياس"):
+        load_aqte(tmp_path / "b.json")

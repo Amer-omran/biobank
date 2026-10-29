@@ -58,7 +58,10 @@ def main():
     test = load_aqte(args.test)
     if args.limit:
         test = test.head(args.limit)
-    print(f"Test reviews: {len(test)}")
+    print(f"Reviews: {len(test)}")
+    scale = test.attrs.get("sentiment_scale")
+    meaning = "0=neg, 0.5=neu, 1=pos" if scale == "unit" else "-1=neg, 0=neu, 1=pos"
+    print(f"avg_sentiment scale detected: {scale} ({meaning}); values seen: {test.attrs.get('sentiment_values')}")
 
     model = None
     if args.train:
