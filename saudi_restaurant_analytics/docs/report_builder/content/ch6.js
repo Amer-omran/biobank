@@ -24,7 +24,7 @@ module.exports = (K, X) => {
       "**Hybrid analysis:** combine the lexicon analyser, which provides evidence and aspects, with a supervised model, which provides vocabulary coverage, for example by using the model when the lexicon is uncertain.",
       "**Improve the neutral class** with explicit neutral expressions, calibrated thresholds tuned on the training data, and possibly a separate \"mixed\" category in the evaluation.",
       "**Expand rare aspects** by adding delivery and quantity expressions from more data and by learning aspect keywords automatically from annotated quotes.",
-      "**Sarcasm and numeric prices:** detect sarcasm using resources such as ArSarcasm (Abu Farha & Magdy, 2020), and interpret prices written as numbers (for example «300 ريال») so that price complaints without opinion words are recognised.",
+      "**Sarcasm and numeric prices:** detect sarcasm using resources such as ArSarcasm-v2 (Abu Farha et al., 2021), and interpret prices written as numbers (for example «300 ريال») so that price complaints without opinion words are recognised.",
       "**Richer data:** collect reviews with restaurant names, dates and cities through official channels, with consent, to enable trend and city analysis on real data.",
       "**Deployment:** provide a hosted version with user accounts for restaurant chains, scheduled imports from official exports, automatic monthly reports, and confidence scores calibrated on annotated data.",
     ]),
