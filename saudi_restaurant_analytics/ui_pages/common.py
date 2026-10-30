@@ -191,7 +191,11 @@ def format_sentiment_table(df: pd.DataFrame) -> pd.DataFrame:
         out["aspect"] = out["aspect"].map(config.ASPECT_AR)
     for col in ("is_mixed", "is_uncertain", "has_opinion"):
         if col in out:
-            out[col] = out[col].map({1: "نعم", 0: "لا", True: "نعم", False: "لا"})
+            out[col] = out[col].map(lambda v: "—" if pd.isna(v) else ("نعم" if bool(v) else "لا"))
+    # القيم الفارغة (مثل جانب بلا وجبة مرتبطة) تُعرض «—» بدل None
+    for col in ("dish", "restaurant_name", "city", "review_date", "cues", "matched_text"):
+        if col in out:
+            out[col] = out[col].astype(object).where(out[col].notna() & (out[col].astype(str) != ""), "—")
     return out.rename(columns={
         "text": "التعليق الأصلي", "restaurant_name": "المطعم", "city": "المدينة", "review_date": "التاريخ",
         "original_rating": "التقييم الأصلي", "sentiment": "الشعور", "confidence": "درجة الثقة",

@@ -69,6 +69,7 @@ else:
         st.plotly_chart(stacked_share_chart(sub, "restaurant_name", f"{config.ASPECT_AR[aspect]} حسب المطعم"),
                         use_container_width=True)
     pivot = matrix.pivot_table(index="aspect_ar", columns="restaurant_name", values="positive_text", aggfunc="first")
+    pivot.index.name, pivot.columns.name = "الجانب", None
     st.markdown("**نسبة الإشارات الإيجابية لكل جانب (بسط من مقام)**")
     st.dataframe(pivot.fillna("لا توجد بيانات"), use_container_width=True)
 

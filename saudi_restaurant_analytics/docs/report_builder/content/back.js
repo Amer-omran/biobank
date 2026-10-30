@@ -1,0 +1,77 @@
+module.exports = (K, X) => {
+  const { P, H2, table, code, bullets } = K;
+  const ref = (t) => new X.Paragraph({ children: K.runs(t), indent: { left: 720, hanging: 720 }, spacing: { after: 120 }, alignment: X.AlignmentType.LEFT });
+  const refs = [
+    "Abu Farha, I., & Magdy, W. (2020). From Arabic sentiment analysis to sarcasm detection: The ArSarcasm dataset. In *Proceedings of the 4th Workshop on Open-Source Arabic Corpora and Processing Tools (OSACT4)* (pp. 32–39). European Language Resources Association.",
+    "Al-Smadi, M., Qawasmeh, O., Al-Ayyoub, M., Jararweh, Y., & Gupta, B. (2018). Deep recurrent neural network vs. support vector machine for aspect-based sentiment analysis of Arabic hotels' reviews. *Journal of Computational Science, 27*, 386–393.",
+    "Al-Twairesh, N., Al-Khalifa, H., Al-Salman, A., & Al-Ohali, Y. (2017). AraSenTi-Tweet: A corpus for Arabic sentiment analysis of Saudi tweets. *Procedia Computer Science, 117*, 63–72.",
+    "Aly, M., & Atiya, A. (2013). LABR: A large scale Arabic book reviews dataset. In *Proceedings of the 51st Annual Meeting of the Association for Computational Linguistics (Volume 2: Short Papers)* (pp. 494–498).",
+    "Antoun, W., Baly, F., & Hajj, H. (2020). AraBERT: Transformer-based model for Arabic language understanding. In *Proceedings of the 4th Workshop on Open-Source Arabic Corpora and Processing Tools (OSACT4)* (pp. 9–15).",
+    "Assiri, A., Emam, A., & Al-Dossari, H. (2018). Towards enhancement of a lexicon-based approach for Saudi dialect sentiment analysis. *Journal of Information Science, 44*(2), 184–202.",
+    "Badaro, G., Baly, R., Hajj, H., Habash, N., & El-Hajj, W. (2014). A large scale Arabic sentiment lexicon for Arabic opinion mining. In *Proceedings of the EMNLP 2014 Workshop on Arabic Natural Language Processing (ANLP)* (pp. 165–173).",
+    "bayandashnan. (n.d.). *AQTE: Arabic Quote & Triplet Extraction dataset* [Data set]. Hugging Face. https://huggingface.co/datasets/bayandashnan/AQTE-Arabic-Quote-Triplet-Extraction [[replace with the citation given on the dataset page, if any]]",
+    "Boudad, N., Faizi, R., Oulad Haj Thami, R., & Chiheb, R. (2018). Sentiment analysis in Arabic: A review of the literature. *Ain Shams Engineering Journal, 9*(4), 2479–2490.",
+    "ElSahar, H., & El-Beltagy, S. R. (2015). Building large Arabic multi-domain resources for sentiment analysis. In *Computational Linguistics and Intelligent Text Processing (CICLing 2015)*, Lecture Notes in Computer Science (Vol. 9042, pp. 23–34). Springer.",
+    "Elnagar, A., Khalifa, Y. S., & Einea, A. (2018). Hotel Arabic-reviews dataset construction for sentiment analysis applications. In K. Shaalan, A. E. Hassanien, & F. Tolba (Eds.), *Intelligent Natural Language Processing: Trends and Applications* (pp. 35–52). Springer.",
+    "Habash, N. Y. (2010). *Introduction to Arabic natural language processing*. Morgan & Claypool.",
+    "Hu, M., & Liu, B. (2004). Mining and summarizing customer reviews. In *Proceedings of the 10th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining* (pp. 168–177).",
+    "Inoue, G., Alhafni, B., Baimukan, N., Bouamor, H., & Habash, N. (2021). The interplay of variant, size, and task type in Arabic pre-trained language models. In *Proceedings of the Sixth Arabic Natural Language Processing Workshop (WANLP)* (pp. 92–104).",
+    "Liu, B. (2012). *Sentiment analysis and opinion mining*. Morgan & Claypool.",
+    "Manning, C. D., Raghavan, P., & Schütze, H. (2008). *Introduction to information retrieval*. Cambridge University Press.",
+    "Nabil, M., Aly, M., & Atiya, A. (2015). ASTD: Arabic sentiment tweets dataset. In *Proceedings of the 2015 Conference on Empirical Methods in Natural Language Processing* (pp. 2515–2519).",
+    "Pang, B., & Lee, L. (2008). Opinion mining and sentiment analysis. *Foundations and Trends in Information Retrieval, 2*(1–2), 1–135.",
+    "Pedregosa, F., Varoquaux, G., Gramfort, A., Michel, V., Thirion, B., Grisel, O., et al. (2011). Scikit-learn: Machine learning in Python. *Journal of Machine Learning Research, 12*, 2825–2830.",
+    "Pontiki, M., Galanis, D., Pavlopoulos, J., Papageorgiou, H., Androutsopoulos, I., & Manandhar, S. (2014). SemEval-2014 Task 4: Aspect based sentiment analysis. In *Proceedings of the 8th International Workshop on Semantic Evaluation (SemEval 2014)* (pp. 27–35).",
+    "Pontiki, M., Galanis, D., Papageorgiou, H., Androutsopoulos, I., Manandhar, S., Al-Smadi, M., et al. (2016). SemEval-2016 Task 5: Aspect based sentiment analysis. In *Proceedings of the 10th International Workshop on Semantic Evaluation (SemEval-2016)* (pp. 19–30).",
+    "Schouten, K., & Frasincar, F. (2016). Survey on aspect-level sentiment analysis. *IEEE Transactions on Knowledge and Data Engineering, 28*(3), 813–830.",
+    "Sokolova, M., & Lapalme, G. (2009). A systematic analysis of performance measures for classification tasks. *Information Processing & Management, 45*(4), 427–437.",
+    "Taboada, M., Brooke, J., Tofiloski, M., Voll, K., & Stede, M. (2011). Lexicon-based methods for sentiment analysis. *Computational Linguistics, 37*(2), 267–307.",
+    "Wilson, E. B. (1927). Probable inference, the law of succession, and statistical inference. *Journal of the American Statistical Association, 22*(158), 209–212.",
+    "Zhang, L., Wang, S., & Liu, B. (2018). Deep learning for sentiment analysis: A survey. *WIREs Data Mining and Knowledge Discovery, 8*(4), e1253.",
+  ];
+  return [
+    X.chapterTitle("References"),
+    ...refs.map(ref),
+
+    X.chapterTitle("Appendices"),
+    H2("Appendix A: Installation and User Guide"),
+    P("**Requirements:** Python 3.10 or later and Git (optional). The steps below are for Windows; on macOS or Linux use `python3` and `source .venv/bin/activate`."),
+    P("**1. Download the project** from the GitHub repository (branch `claude/practical-shannon-77t9ub`), either as a ZIP file or with:"),
+    ...code(["git clone -b claude/practical-shannon-77t9ub https://github.com/Amer-omran/biobank.git"]),
+    P("**2. Create and activate a virtual environment, and install the libraries** (once):"),
+    ...code(["cd biobank\\saudi_restaurant_analytics", "python -m venv .venv", ".venv\\Scripts\\activate", "pip install -r requirements.txt"]),
+    P("**3. Start the platform** (each time):"),
+    ...code(["cd biobank\\saudi_restaurant_analytics", ".venv\\Scripts\\activate", "streamlit run app.py"]),
+    P("**4. Use it:** the browser opens at http://localhost:8501. To try it quickly, press «تحميل البيانات التجريبية وتحليلها» on the home page. To analyse real data, import a file on the «استيراد البيانات» page, choose the columns, run the analysis on the «تحليل المشاعر» page, and explore the other pages."),
+    P("**5. Reproduce the evaluation** (after downloading `train_split.json` and `test_split.json` from the AQTE page into the project folder):"),
+    ...code(["python scripts/evaluate_aqte.py test_split.json --train train_split.json", "python scripts/error_analysis_aqte.py train_split.json --limit 2000", "python scripts/prepare_aqte.py train_split.json"]),
+    P("**6. Run the automated tests:**"),
+    ...code(["python -m pytest"]),
+
+    H2("Appendix B: Lexicon Change Log"),
+    ...table("Lexicon changes by version", ["Version", "Changes", "Reason"], [
+      ["1.1", "Added جيد، كويس، اخلاق، احترام، ترحيب، اشكر، بطل، تجنن، فاخر; the phrases «لا بأس» and «زي العسل»; raised «معقول» to 0.8; made speed words conditional (delivery if mentioned, otherwise service); new aspect keywords طعام، قهوة، مشروبات، حلويات، معمار، تصميم", "Most frequent words in missed quotes on the training sample"],
+      ["1.2", "Restored «عادي» (−0.3) and «زحمة» (−0.7)", "Their removal relied on misread labels and lowered macro-F1 against star ratings (0.603 → 0.584)"],
+      ["1.3", "Single-word phrases now matched (لاباس، ماشاءالله، ماقصروا، لايفوتكم); ta marbuta restored before suffixes (خدمتهم → خدمة)", "Two software defects revealed by the second error analysis"],
+      ["1.3", "Quantity: راهية، يكفي، تكفي، كافي، موزونة، بخيل. Price: متناول، أغلى; aspect words شارج، مينيموم، ضريبة. Service: لطيف; waiting phrases; إدارة، صاحب المحل. Delivery: تغليف، سفري، أكياس، تطبيقات، يوصل. Cleanliness: نضيف، وصخ، ذبان، شعر، مكشوف، رائحة. Ambiance: هدوء، أجمل، مزدحم، قديم (place only). Neutral: متوسط. Rule: «يحتاج + aspect» treated as absence. Dishes: شوربة، بيض", "Second error analysis (210 suggested terms)"],
+      ["1.3 (rejected)", "Function words (عندهم، جربت، ولا، فقط، كله، يوجد، صراحه، يعتبر، عشان، ايش); names (ابو، حسن); ambiguous words (الطلب، ساعة alone، زيت، داخلية، خارجية); numeric prices", "Not opinion or aspect words, or ambiguous between aspects"],
+    ], [0.12, 0.6, 0.28]),
+
+    H2("Appendix C: Example Analyser Outputs"),
+    P("The following outputs were produced by the final analyser (version 1.3):"),
+    ...table("Example outputs of the analyser", ["Review", "Overall", "Aspects"], [
+      ["الأكل لذيذ والخدمة سيئة", "Neutral (mixed, uncertain)", "Food quality: positive; Service: negative"],
+      ["ما عجبني الأكل بس الخدمة ممتازة", "Positive (mixed)", "Food quality: negative; Service: positive"],
+      ["الكبسة غالية مرة", "Negative", "Price: negative (linked to kabsa)"],
+      ["المكان مافي نظافة", "Negative", "Cleanliness: negative"],
+      ["الأكل والخدمة ممتازين", "Positive", "Food quality: positive; Service: positive"],
+      ["الاسعار متوسطة", "Neutral", "Price: neutral"],
+      ["الكمية ما تكفي", "Negative", "Quantity: negative"],
+      ["خدمتهم ممتازة", "Positive", "Service: positive"],
+      ["طلبت شاورما", "Neutral (uncertain: no opinion)", "Dish: shawarma, no opinion"],
+    ], [0.38, 0.27, 0.35]),
+
+    H2("Appendix D: Source Code Repository"),
+    P("The complete source code, tests, dish dictionary, lexicon change log and evaluation scripts are available in the project repository: https://github.com/Amer-omran/biobank (branch `claude/practical-shannon-77t9ub`, folder `saudi_restaurant_analytics`)."),
+  ];
+};
