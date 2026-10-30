@@ -84,18 +84,19 @@ function table(cap, headers, rows, fractions) {
   const fr = fractions || headers.map(() => 1 / headers.length);
   const widths = fr.map((f) => Math.round(f * CONTENT_W));
   widths[widths.length - 1] = CONTENT_W - widths.slice(0, -1).reduce((a, b) => a + b, 0);
-  const cell = (t, i, head) => new TableCell({
+  const keep = rows.length <= 10; // keep short tables on one page
+  const cell = (t, i, head, last) => new TableCell({
     borders, width: { size: widths[i], type: WidthType.DXA }, verticalAlign: VerticalAlign.CENTER,
     shading: head ? { fill: "DCE6F2", type: ShadingType.CLEAR, color: "auto" } : undefined,
     margins: { top: 60, bottom: 60, left: 100, right: 100 },
-    children: [new Paragraph({ spacing: { after: 0, line: 260 }, children: runs(String(t), { size: 20, bold: head || undefined }) })],
+    children: [new Paragraph({ keepNext: keep && !last, spacing: { after: 0, line: 260 }, children: runs(String(t), { size: 20, bold: head || undefined }) })],
   });
   return [
     caption("Table", cap),
     new Table({
       width: { size: CONTENT_W, type: WidthType.DXA }, columnWidths: widths,
       rows: [new TableRow({ tableHeader: true, children: headers.map((h, i) => cell(h, i, true)) }),
-        ...rows.map((r) => new TableRow({ cantSplit: true, children: r.map((t, i) => cell(t, i, false)) }))],
+        ...rows.map((r, j) => new TableRow({ cantSplit: true, children: r.map((t, i) => cell(t, i, false, j === rows.length - 1)) }))],
     }),
     new Paragraph({ spacing: { before: 0, after: 0, line: 160, lineRule: LineRuleType.AUTO }, children: [new TextRun({ text: "", size: 12 })] }),
   ];
