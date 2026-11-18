@@ -104,3 +104,8 @@ def test_read_parquet_and_json(tmp_path):
     assert read_table(tmp_path / "d.jsonl")["text"].tolist() == ["حلو", "زفت"]
     (tmp_path / "d.json").write_text('[{"text": "ممتاز"}]', encoding="utf-8")
     assert read_table(tmp_path / "d.json")["text"].tolist() == ["ممتاز"]
+
+
+def test_suggest_mapping_skips_id_column_named_like_text():
+    df = pd.DataFrame({"review_id": ["R1", "R2"], "review_text": ["الأكل لذيذ", "الخدمة سيئة"]})
+    assert suggest_mapping(df)["text"] == "review_text"

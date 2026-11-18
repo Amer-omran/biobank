@@ -184,6 +184,12 @@ def stringify_nested(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ======================================================== اقتراح الأعمدة
+def _looks_like_text(series: pd.Series) -> bool:
+    """هل يحتوي العمود نصوصًا عربية (لا أرقامًا أو معرّفات)؟"""
+    values = series.dropna().astype(str).head(200)
+    return not values.empty and values.map(contains_arabic).mean() > 0.5
+
+
 def suggest_mapping(df: pd.DataFrame) -> dict[str, str | None]:
     """اقتراح أولي للأعمدة اعتمادًا على الأسماء والمحتوى. ليس قرارًا نهائيًا."""
     suggestion: dict[str, str | None] = {k: None for k in COLUMN_HINTS}
@@ -193,6 +199,8 @@ def suggest_mapping(df: pd.DataFrame) -> dict[str, str | None]:
             if col in used:
                 continue
             col_norm = normalize_arabic(col)
+            if role == "text" and not _looks_like_text(df[col]):
+                continue  # مثل review_id: الاسم يطابق لكن المحتوى معرّفات لا تعليقات
             if any(normalize_arabic(h) in col_norm for h in hints):
                 suggestion[role] = col
                 used.add(col)
@@ -203,9 +211,9 @@ def suggest_mapping(df: pd.DataFrame) -> dict[str, str | None]:
         for col in df.columns:
             if col in used:
                 continue
-            values = df[col].dropna().astype(str).head(200)
-            if values.empty or not values.map(contains_arabic).mean() > 0.5:
+            if not _looks_like_text(df[col]):
                 continue
+            values = df[col].dropna().astype(str).head(200)
             mean_len = values.str.len().mean()
             if mean_len > best_len:
                 best, best_len = col, mean_len
