@@ -294,6 +294,10 @@ def cmd_bootstrap(_a) -> int:
         for mv in db.scalars(select(ModelVersion).order_by(ModelVersion.created_at)):
             newest[mv.language] = mv
         for mv in newest.values():
+            collapsed = [c for c, m in ((mv.test_metrics or {}).get("per_class") or {}).items() if m.get("support") and m.get("recall") == 0]
+            if collapsed:
+                print(f"bootstrap: NOT activating {mv.version_tag}: zero test recall for {collapsed} (model predicts a single class)")
+                continue
             if mv.status != "active" and not db.scalar(select(ModelVersion.id).where(ModelVersion.language == mv.language, ModelVersion.status == "active")):
                 activate_model(db, mv)
                 db.commit()
