@@ -22,7 +22,12 @@
 
 إذا كان المستودع خاصاً، ستحتاج رمز GitHub للقراءة في الخلية 1.
 
-## ج) رابط عام على الإنترنت (Hugging Face Spaces — مجاني)
+## ج) رابط عام مؤقت ومجاني من Colab (Cloudflare Tunnel)
+> **تحديث (2026-11-23):** Hugging Face أصبح يطلب اشتراك PRO لتشغيل Docker Spaces (خطأ 402)، لذلك لم يعد خيار
+> Spaces مجانياً. البديل المجاني: تشغيل الموقع داخل Colab ونشره برابط `https://...trycloudflare.com`. الرابط يعمل
+> طالما جلسة Colab مفتوحة، ويتغير في كل تشغيل.
+
+## د) رابط دائم عبر Hugging Face Spaces (يتطلب اشتراك PRO)
 1. أنشئ حساباً على https://huggingface.co
 2. أنشئ رمز **Write** من https://huggingface.co/settings/tokens
 3. شغّل الخلية الأخيرة في دفتر Colab (أو من جهازك:
