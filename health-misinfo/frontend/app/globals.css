@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+/* Design tokens: navy / teal / white / subtle gray. Chart series use the validated categorical
+   slots 1-3 (blue, orange, aqua), which pass all-pairs CVD checks; they are always paired with
+   direct text labels and a table view. */
+@theme {
+  --color-navy-950: #061528;
+  --color-navy-900: #0b2545;
+  --color-navy-800: #13315c;
+  --color-navy-700: #1d4477;
+  --color-navy-100: #e3eaf4;
+  --color-navy-50: #f2f5fa;
+  --color-teal-800: #115e59;
+  --color-teal-700: #0f766e;
+  --color-teal-600: #0d9488;
+  --color-teal-100: #ccfbf1;
+  --color-teal-50: #effcf9;
+  --color-series-1: #2a78d6;
+  --color-series-2: #eb6834;
+  --color-series-3: #1baf7a;
+  --font-sans: "Segoe UI", "Noto Sans Arabic", "Noto Sans", Tahoma, "Helvetica Neue", Arial, system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  background: #f6f8fb;
+  color: #0f172a;
+}
+
+/* Arabic needs a little more line height for diacritics and descenders. */
+html[lang="ar"] body {
+  line-height: 1.75;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-teal-600);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.skip-link {
+  position: absolute;
+  inset-inline-start: -9999px;
+}
+.skip-link:focus {
+  inset-inline-start: 1rem;
+  top: 1rem;
+  z-index: 50;
+  background: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+}

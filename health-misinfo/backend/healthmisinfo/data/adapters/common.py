@@ -21,10 +21,22 @@ def bytes_sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def safe_url(value) -> str | None:
+    """Return the URL only if it is an absolute http(s) URL (blocks javascript:, data:, etc.)."""
+    if value is None:
+        return None
+    s = str(value).strip()
+    return s if s.lower().startswith(("http://", "https://")) and len(s) <= 2048 else None
+
+
 def parse_url_list(value) -> list[str]:
     """Parse URL lists stored as Python tuple/list literals ("('a', 'b')"), JSON, or delimited text.
 
-    Uses ``ast.literal_eval`` (literals only, no code execution)."""
+    Uses ``ast.literal_eval`` (literals only, no code execution). Only http(s) URLs are kept."""
+    return [u for u in _parse_url_list(value) if safe_url(u)]
+
+
+def _parse_url_list(value) -> list[str]:
     if value is None:
         return []
     if isinstance(value, (list, tuple)):

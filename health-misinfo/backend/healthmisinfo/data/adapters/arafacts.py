@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from healthmisinfo.data.adapters.common import clean_str, file_sha256, parse_url_list, require_columns
+from healthmisinfo.data.adapters.common import clean_str, file_sha256, parse_url_list, require_columns, safe_url
 from healthmisinfo.data.records import AdapterResult, RawRecord
 
 REQUIRED = [
@@ -68,7 +68,7 @@ def load_arafacts(path: Path | str, categories: list[str] | None = ("Health",)) 
                     "normalized_label": clean_str(r["normalized_label"]),
                 },
                 source_category=clean_str(r["source_category"]),
-                source_url=clean_str(r["source_url"]),
+                source_url=safe_url(r["source_url"]),
                 evidence_urls=evidence,
                 claim_date=clean_str(r["date"]),
                 extra={

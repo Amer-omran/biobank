@@ -23,7 +23,7 @@ No model has been trained. No accuracy, F1 or any other result exists for this p
 
 ## What-if analysis: AraFacts health subset if *every* proposed mapping were approved
 
-(Computed without changing any file; reproducible with the snippet in `docs/METHODOLOGY.md` §4.)
+(Computed without changing any file; reproducible with `python -m healthmisinfo.data.whatif --source arafacts --file ...`.)
 
 | Proposed target | Count | of which low / medium / high ambiguity |
 | --- | --- | --- |

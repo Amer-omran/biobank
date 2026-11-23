@@ -1,3 +1,7 @@
+> **Note:** this repository also contains the **Health Misinformation Detection research platform** in
+> [`health-misinfo/`](health-misinfo/README.md) (bilingual Arabic/English, FastAPI + Next.js). The biobank
+> application below is unchanged and independent.
+
 # biobank
 
 A **biobank management system** for tracking animal biological samples, with

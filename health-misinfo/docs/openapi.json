@@ -1,0 +1,2641 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "Health Misinformation Detection — Research API",
+  "description": "\nBilingual (Arabic/English) research API for detecting health rumours and misinformation.\n\n* Labels: `0 SUPPORTED`, `1 MISLEADING`, `2 NEEDS_REVIEW`.\n* **Research prediction only. This is not medical advice and not a definitive fact-check. Verify against reliable evidence; results may require expert review.**\n* تنبؤ بحثي فقط. هذه ليست نصيحة طبية ولا تحققاً نهائياً من صحة المعلومة. يجب التحقق من الأدلة الموثوقة، وقد تتطلب النتائج مراجعة من خبير.\n* When no trained, evaluated and registered model exists for a language, `/api/v1/analyze` returns\n  `status = \"model_not_trained\"` with **no label and no probabilities**.\n\nAuthentication: `POST /api/v1/auth/login` returns a bearer token and sets an HttpOnly cookie.\nCookie-authenticated unsafe requests must send `X-Requested-With`.\n",
+  "version": "0.1.0"
+ },
+ "paths": {
+  "/health": {
+   "get": {
+    "tags": [
+     "system"
+    ],
+    "summary": "Liveness + database connectivity",
+    "operationId": "health_health_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/auth/login": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Sign in (sets an HttpOnly session cookie)",
+    "operationId": "login_api_v1_auth_login_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LoginIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/LoginOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/auth/logout": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Clear the session cookie",
+    "operationId": "logout_api_v1_auth_logout_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/auth/me": {
+   "get": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Me",
+    "operationId": "me_api_v1_auth_me_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UserOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/models": {
+   "get": {
+    "tags": [
+     "models"
+    ],
+    "summary": "Model slots, their state (ready / not_trained / ...) and registered versions",
+    "operationId": "list_models_api_v1_models_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/models/{model_id}": {
+   "get": {
+    "tags": [
+     "models"
+    ],
+    "summary": "Full metrics of a registered model version",
+    "operationId": "get_model_api_v1_models__model_id__get",
+    "parameters": [
+     {
+      "name": "model_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Model Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/models/{model_id}/activate": {
+   "post": {
+    "tags": [
+     "models"
+    ],
+    "summary": "Make this version the active model for its language (admin)",
+    "operationId": "activate_api_v1_models__model_id__activate_post",
+    "parameters": [
+     {
+      "name": "model_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Model Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/analyze": {
+   "post": {
+    "tags": [
+     "analysis"
+    ],
+    "summary": "Analyse a health claim (research prediction)",
+    "operationId": "analyze_api_v1_analyze_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AnalyzeIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AnalysisOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/history": {
+   "get": {
+    "tags": [
+     "analysis"
+    ],
+    "summary": "Analysis history (own analyses; all for reviewers/admins)",
+    "operationId": "history_api_v1_history_get",
+    "parameters": [
+     {
+      "name": "page",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1,
+       "title": "Page"
+      }
+     },
+     {
+      "name": "page_size",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 100,
+       "minimum": 1,
+       "default": 20,
+       "title": "Page Size"
+      }
+     },
+     {
+      "name": "language",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "pattern": "^(ar|en)$"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Language"
+      }
+     },
+     {
+      "name": "status",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 32
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Status"
+      }
+     },
+     {
+      "name": "review_status",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 20
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Review Status"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/history/{analysis_id}": {
+   "get": {
+    "tags": [
+     "analysis"
+    ],
+    "summary": "History Item",
+    "operationId": "history_item_api_v1_history__analysis_id__get",
+    "parameters": [
+     {
+      "name": "analysis_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Analysis Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AnalysisOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/history/{analysis_id}/request-review": {
+   "post": {
+    "tags": [
+     "analysis"
+    ],
+    "summary": "Send an analysis to the expert review queue",
+    "operationId": "request_review_api_v1_history__analysis_id__request_review_post",
+    "parameters": [
+     {
+      "name": "analysis_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Analysis Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AnalysisOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/datasets": {
+   "get": {
+    "tags": [
+     "datasets"
+    ],
+    "summary": "Datasets (imports and split versions) with statistics",
+    "operationId": "list_datasets_api_v1_datasets_get",
+    "parameters": [
+     {
+      "name": "kind",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "pattern": "^(import|split|curated)$"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Kind"
+      }
+     },
+     {
+      "name": "include_synthetic",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": true,
+       "title": "Include Synthetic"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/datasets/{dataset_id}": {
+   "get": {
+    "tags": [
+     "datasets"
+    ],
+    "summary": "Get Dataset",
+    "operationId": "get_dataset_api_v1_datasets__dataset_id__get",
+    "parameters": [
+     {
+      "name": "dataset_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Dataset Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/datasets/{dataset_id}/samples": {
+   "get": {
+    "tags": [
+     "datasets"
+    ],
+    "summary": "List Samples",
+    "operationId": "list_samples_api_v1_datasets__dataset_id__samples_get",
+    "parameters": [
+     {
+      "name": "dataset_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Dataset Id"
+      }
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1,
+       "title": "Page"
+      }
+     },
+     {
+      "name": "page_size",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 200,
+       "minimum": 1,
+       "default": 25,
+       "title": "Page Size"
+      }
+     },
+     {
+      "name": "eligibility",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 16
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Eligibility"
+      }
+     },
+     {
+      "name": "exclusion_reason",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 128
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Exclusion Reason"
+      }
+     },
+     {
+      "name": "review_status",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 20
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Review Status"
+      }
+     },
+     {
+      "name": "q",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 200
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Q"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/datasets/preview": {
+   "post": {
+    "tags": [
+     "datasets"
+    ],
+    "summary": "Inspect an upload: columns, sample rows and distinct label values",
+    "operationId": "preview_api_v1_datasets_preview_post",
+    "requestBody": {
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_preview_api_v1_datasets_preview_post"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/datasets/import": {
+   "post": {
+    "tags": [
+     "datasets"
+    ],
+    "summary": "Import a CSV/TSV/JSON/JSONL dataset with provenance and schema validation",
+    "operationId": "import_dataset_api_v1_datasets_import_post",
+    "requestBody": {
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_import_dataset_api_v1_datasets_import_post"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/datasets/{dataset_id}/refresh": {
+   "post": {
+    "tags": [
+     "datasets"
+    ],
+    "summary": "Re-apply the registry label mapping, duplicates, reviews and eligibility (admin)",
+    "operationId": "refresh_api_v1_datasets__dataset_id__refresh_post",
+    "parameters": [
+     {
+      "name": "dataset_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Dataset Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/datasets/{dataset_id}/queue-review": {
+   "post": {
+    "tags": [
+     "datasets"
+    ],
+    "summary": "Queue a reproducible random sample of items for expert review",
+    "operationId": "queue_review_api_v1_datasets__dataset_id__queue_review_post",
+    "parameters": [
+     {
+      "name": "dataset_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Dataset Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/QueueReviewIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/datasets/splits": {
+   "post": {
+    "tags": [
+     "datasets"
+    ],
+    "summary": "Build a verified, group-aware 70/15/15 split for one language (admin)",
+    "operationId": "make_split_api_v1_datasets_splits_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SplitIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/sources": {
+   "get": {
+    "tags": [
+     "datasets"
+    ],
+    "summary": "Dataset provenance & license registry",
+    "operationId": "list_sources_api_v1_sources_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/sources/{key}/mapping": {
+   "get": {
+    "tags": [
+     "datasets"
+    ],
+    "summary": "Full proposed/approved label mapping for a source",
+    "operationId": "get_mapping_api_v1_sources__key__mapping_get",
+    "parameters": [
+     {
+      "name": "key",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Key"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/sources/{key}": {
+   "patch": {
+    "tags": [
+     "datasets"
+    ],
+    "summary": "Record a human license review (admin)",
+    "operationId": "update_source_api_v1_sources__key__patch",
+    "parameters": [
+     {
+      "name": "key",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Key"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SourceUpdate"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/reviews": {
+   "post": {
+    "tags": [
+     "reviews"
+    ],
+    "summary": "Submit an expert review or an adjudication",
+    "operationId": "submit_review_api_v1_reviews_post",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ReviewIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ReviewOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "get": {
+    "tags": [
+     "reviews"
+    ],
+    "summary": "Reviews of one item (admins see all; others see their own)",
+    "operationId": "list_reviews_api_v1_reviews_get",
+    "parameters": [
+     {
+      "name": "target_type",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^(analysis|sample)$",
+       "title": "Target Type"
+      }
+     },
+     {
+      "name": "target_id",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "exclusiveMinimum": 0,
+       "title": "Target Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/reviews/pending": {
+   "get": {
+    "tags": [
+     "reviews"
+    ],
+    "summary": "Items awaiting expert review (excludes items you already reviewed)",
+    "operationId": "pending_api_v1_reviews_pending_get",
+    "parameters": [
+     {
+      "name": "target_type",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "pattern": "^(analysis|sample)$",
+       "default": "analysis",
+       "title": "Target Type"
+      }
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1,
+       "title": "Page"
+      }
+     },
+     {
+      "name": "page_size",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 100,
+       "minimum": 1,
+       "default": 20,
+       "title": "Page Size"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/analytics": {
+   "get": {
+    "tags": [
+     "analytics"
+    ],
+    "summary": "Research analytics: dataset distribution, model metrics, analyses, reviews",
+    "operationId": "analytics_api_v1_analytics_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/reports": {
+   "get": {
+    "tags": [
+     "reports"
+    ],
+    "summary": "List report types, or download one with ?type=...&format=csv|pdf",
+    "operationId": "reports_api_v1_reports_get",
+    "parameters": [
+     {
+      "name": "type",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "pattern": "^(summary|analyses|dataset|evaluation|reviews|sources|audit)$"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Type"
+      }
+     },
+     {
+      "name": "format",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "pattern": "^(csv|pdf)$",
+       "default": "csv",
+       "title": "Format"
+      }
+     },
+     {
+      "name": "dataset_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Dataset Id"
+      }
+     },
+     {
+      "name": "model_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Model Id"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 100000,
+       "minimum": 1,
+       "default": 5000,
+       "title": "Limit"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/admin/users": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "List Users",
+    "operationId": "list_users_api_v1_admin_users_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/UserOut"
+         },
+         "type": "array",
+         "title": "Response List Users Api V1 Admin Users Get"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Add User",
+    "operationId": "add_user_api_v1_admin_users_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/UserCreate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UserOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/admin/users/{user_id}": {
+   "patch": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Update User",
+    "operationId": "update_user_api_v1_admin_users__user_id__patch",
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "User Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/UserUpdate"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UserOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/admin/settings": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Get Settings ",
+    "operationId": "get_settings__api_v1_admin_settings_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Put Settings",
+    "operationId": "put_settings_api_v1_admin_settings_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SettingsUpdate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/admin/audit-logs": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Audit Logs",
+    "operationId": "audit_logs_api_v1_admin_audit_logs_get",
+    "parameters": [
+     {
+      "name": "page",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1,
+       "title": "Page"
+      }
+     },
+     {
+      "name": "page_size",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 200,
+       "minimum": 1,
+       "default": 50,
+       "title": "Page Size"
+      }
+     },
+     {
+      "name": "entity_type",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 64
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Entity Type"
+      }
+     },
+     {
+      "name": "action",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 64
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Action"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/admin/training-runs": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Training Runs",
+    "operationId": "training_runs_api_v1_admin_training_runs_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/admin/seed-registry": {
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Re-load data/registry/sources.json into the source registry",
+    "operationId": "reseed_api_v1_admin_seed_registry_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "AnalysisOut": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "model_state": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Model State"
+     },
+     "language": {
+      "$ref": "#/components/schemas/LanguageInfo"
+     },
+     "warnings": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Warnings",
+      "default": []
+     },
+     "model": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Model"
+     },
+     "prediction": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PredictionOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "explanation": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Explanation",
+      "default": {}
+     },
+     "similar_claims": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "title": "Similar Claims",
+      "default": []
+     },
+     "verification_resources": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "title": "Verification Resources",
+      "default": []
+     },
+     "health_topic": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Health Topic"
+     },
+     "review_status": {
+      "type": "string",
+      "title": "Review Status"
+     },
+     "final_label": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Final Label"
+     },
+     "final_label_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Final Label Name"
+     },
+     "text": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Text"
+     },
+     "redactions": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Redactions",
+      "default": {}
+     },
+     "disclaimer": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "type": "object",
+      "title": "Disclaimer"
+     },
+     "reviews": {
+      "anyOf": [
+       {
+        "items": {
+         "additionalProperties": true,
+         "type": "object"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reviews"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "created_at",
+     "status",
+     "language",
+     "review_status",
+     "disclaimer"
+    ],
+    "title": "AnalysisOut"
+   },
+   "AnalyzeIn": {
+    "properties": {
+     "text": {
+      "type": "string",
+      "maxLength": 20000,
+      "title": "Text",
+      "description": "Health claim to analyse (Arabic or English)."
+     },
+     "model": {
+      "type": "string",
+      "enum": [
+       "auto",
+       "ar",
+       "en"
+      ],
+      "title": "Model",
+      "description": "auto = choose by detected language",
+      "default": "auto"
+     },
+     "explain": {
+      "type": "boolean",
+      "title": "Explain",
+      "default": true
+     }
+    },
+    "type": "object",
+    "required": [
+     "text"
+    ],
+    "title": "AnalyzeIn"
+   },
+   "Body_import_dataset_api_v1_datasets_import_post": {
+    "properties": {
+     "file": {
+      "type": "string",
+      "contentMediaType": "application/octet-stream",
+      "title": "File"
+     },
+     "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]{1,120}$",
+      "title": "Name"
+     },
+     "version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]{1,64}$",
+      "title": "Version"
+     },
+     "language": {
+      "type": "string",
+      "pattern": "^(ar|en)$",
+      "title": "Language"
+     },
+     "source_key": {
+      "type": "string",
+      "maxLength": 64,
+      "title": "Source Key",
+      "default": "user_upload"
+     },
+     "text_column": {
+      "type": "string",
+      "maxLength": 128,
+      "title": "Text Column",
+      "default": "text"
+     },
+     "label_column": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 128
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Label Column",
+      "default": "label"
+     },
+     "id_column": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 128
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Id Column"
+     },
+     "source_url_column": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 128
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Url Column"
+     },
+     "evidence_urls_column": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 128
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Evidence Urls Column"
+     },
+     "category_column": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 128
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Category Column"
+     },
+     "date_column": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 128
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Date Column"
+     },
+     "group_key_column": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 128
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Group Key Column"
+     },
+     "label_mapping": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Label Mapping",
+      "description": "JSON object {\"original label\": \"SUPPORTED|MISLEADING|NEEDS_REVIEW|EXCLUDE\"}"
+     },
+     "use_registry_mapping": {
+      "type": "boolean",
+      "title": "Use Registry Mapping",
+      "default": false
+     },
+     "is_synthetic": {
+      "type": "boolean",
+      "title": "Is Synthetic",
+      "default": false
+     },
+     "license_confirmed": {
+      "type": "boolean",
+      "title": "License Confirmed",
+      "default": false
+     },
+     "license_note": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 2000
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "License Note"
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 4000
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes"
+     }
+    },
+    "type": "object",
+    "required": [
+     "file",
+     "name",
+     "version",
+     "language"
+    ],
+    "title": "Body_import_dataset_api_v1_datasets_import_post"
+   },
+   "Body_preview_api_v1_datasets_preview_post": {
+    "properties": {
+     "file": {
+      "type": "string",
+      "contentMediaType": "application/octet-stream",
+      "title": "File"
+     },
+     "label_column": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Label Column"
+     }
+    },
+    "type": "object",
+    "required": [
+     "file"
+    ],
+    "title": "Body_preview_api_v1_datasets_preview_post"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "type": "array",
+      "title": "Detail"
+     }
+    },
+    "type": "object",
+    "title": "HTTPValidationError"
+   },
+   "LanguageInfo": {
+    "properties": {
+     "detected": {
+      "type": "string",
+      "title": "Detected"
+     },
+     "confidence": {
+      "type": "number",
+      "title": "Confidence"
+     },
+     "used": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Used"
+     },
+     "details": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Details"
+     }
+    },
+    "type": "object",
+    "required": [
+     "detected",
+     "confidence",
+     "used",
+     "details"
+    ],
+    "title": "LanguageInfo"
+   },
+   "LoginIn": {
+    "properties": {
+     "email": {
+      "type": "string",
+      "maxLength": 255,
+      "title": "Email"
+     },
+     "password": {
+      "type": "string",
+      "maxLength": 256,
+      "title": "Password"
+     }
+    },
+    "type": "object",
+    "required": [
+     "email",
+     "password"
+    ],
+    "title": "LoginIn"
+   },
+   "LoginOut": {
+    "properties": {
+     "access_token": {
+      "type": "string",
+      "title": "Access Token"
+     },
+     "token_type": {
+      "type": "string",
+      "title": "Token Type",
+      "default": "bearer"
+     },
+     "user": {
+      "$ref": "#/components/schemas/UserOut"
+     }
+    },
+    "type": "object",
+    "required": [
+     "access_token",
+     "user"
+    ],
+    "title": "LoginOut"
+   },
+   "PredictionOut": {
+    "properties": {
+     "label": {
+      "type": "integer",
+      "title": "Label"
+     },
+     "label_name": {
+      "type": "string",
+      "title": "Label Name"
+     },
+     "display_label": {
+      "type": "string",
+      "title": "Display Label"
+     },
+     "raw_scores": {
+      "additionalProperties": {
+       "type": "number"
+      },
+      "type": "object",
+      "title": "Raw Scores",
+      "description": "Uncalibrated softmax scores. NOT a confidence."
+     },
+     "calibrated_probabilities": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "type": "number"
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Calibrated Probabilities"
+     },
+     "confidence": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Confidence",
+      "description": "Max calibrated probability; null if the model is uncalibrated."
+     },
+     "is_calibrated": {
+      "type": "boolean",
+      "title": "Is Calibrated"
+     },
+     "abstained": {
+      "type": "boolean",
+      "title": "Abstained"
+     },
+     "abstention_threshold": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Abstention Threshold"
+     }
+    },
+    "type": "object",
+    "required": [
+     "label",
+     "label_name",
+     "display_label",
+     "raw_scores",
+     "is_calibrated",
+     "abstained",
+     "abstention_threshold"
+    ],
+    "title": "PredictionOut"
+   },
+   "QueueReviewIn": {
+    "properties": {
+     "count": {
+      "type": "integer",
+      "maximum": 2000.0,
+      "minimum": 1.0,
+      "title": "Count",
+      "default": 50
+     },
+     "seed": {
+      "type": "integer",
+      "title": "Seed",
+      "default": 42
+     },
+     "only_eligible": {
+      "type": "boolean",
+      "title": "Only Eligible",
+      "default": true
+     }
+    },
+    "type": "object",
+    "title": "QueueReviewIn"
+   },
+   "ReviewIn": {
+    "properties": {
+     "target_type": {
+      "type": "string",
+      "enum": [
+       "analysis",
+       "sample"
+      ],
+      "title": "Target Type"
+     },
+     "target_id": {
+      "type": "integer",
+      "exclusiveMinimum": 0.0,
+      "title": "Target Id"
+     },
+     "label": {
+      "type": "string",
+      "enum": [
+       "SUPPORTED",
+       "MISLEADING",
+       "NEEDS_REVIEW"
+      ],
+      "title": "Label"
+     },
+     "evidence_urls": {
+      "items": {
+       "type": "string",
+       "maxLength": 2083,
+       "minLength": 1,
+       "format": "uri"
+      },
+      "type": "array",
+      "maxItems": 20,
+      "title": "Evidence Urls"
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 4000
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes"
+     },
+     "is_adjudication": {
+      "type": "boolean",
+      "title": "Is Adjudication",
+      "default": false
+     },
+     "guideline_version": {
+      "type": "string",
+      "maxLength": 32,
+      "title": "Guideline Version",
+      "default": "guidelines-v1"
+     }
+    },
+    "type": "object",
+    "required": [
+     "target_type",
+     "target_id",
+     "label"
+    ],
+    "title": "ReviewIn"
+   },
+   "ReviewOut": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "target_type": {
+      "type": "string",
+      "title": "Target Type"
+     },
+     "target_id": {
+      "type": "integer",
+      "title": "Target Id"
+     },
+     "reviewer_code": {
+      "type": "string",
+      "title": "Reviewer Code"
+     },
+     "label_name": {
+      "type": "string",
+      "title": "Label Name"
+     },
+     "agrees_with_model": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Agrees With Model"
+     },
+     "evidence_urls": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Evidence Urls"
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes"
+     },
+     "is_adjudication": {
+      "type": "boolean",
+      "title": "Is Adjudication"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "target_review_status": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Target Review Status"
+     },
+     "target_final_label_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Target Final Label Name"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "target_type",
+     "target_id",
+     "reviewer_code",
+     "label_name",
+     "agrees_with_model",
+     "evidence_urls",
+     "notes",
+     "is_adjudication",
+     "created_at"
+    ],
+    "title": "ReviewOut"
+   },
+   "SettingsUpdate": {
+    "properties": {
+     "reviews_required": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 5.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reviews Required"
+     },
+     "store_analysis_text": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Store Analysis Text"
+     },
+     "auto_queue_abstained": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Auto Queue Abstained"
+     },
+     "auto_queue_needs_review": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Auto Queue Needs Review"
+     }
+    },
+    "type": "object",
+    "title": "SettingsUpdate"
+   },
+   "SourceUpdate": {
+    "properties": {
+     "license_status": {
+      "type": "string",
+      "enum": [
+       "verified",
+       "unclear_needs_review",
+       "unknown",
+       "not_a_dataset"
+      ],
+      "title": "License Status"
+     },
+     "license_evidence": {
+      "type": "string",
+      "maxLength": 4000,
+      "minLength": 10,
+      "title": "License Evidence",
+      "description": "What was checked and where."
+     }
+    },
+    "type": "object",
+    "required": [
+     "license_status",
+     "license_evidence"
+    ],
+    "title": "SourceUpdate"
+   },
+   "SplitIn": {
+    "properties": {
+     "language": {
+      "type": "string",
+      "enum": [
+       "ar",
+       "en"
+      ],
+      "title": "Language"
+     },
+     "version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]{1,64}$",
+      "title": "Version"
+     },
+     "dataset_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "integer"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Dataset Ids"
+     },
+     "seed": {
+      "type": "integer",
+      "title": "Seed",
+      "default": 42
+     },
+     "require_human_review": {
+      "type": "boolean",
+      "title": "Require Human Review",
+      "default": false
+     },
+     "near_dup_threshold": {
+      "type": "number",
+      "maximum": 1.0,
+      "minimum": 0.5,
+      "title": "Near Dup Threshold",
+      "default": 0.85
+     }
+    },
+    "type": "object",
+    "required": [
+     "language",
+     "version"
+    ],
+    "title": "SplitIn"
+   },
+   "UserCreate": {
+    "properties": {
+     "email": {
+      "type": "string",
+      "format": "email",
+      "title": "Email"
+     },
+     "display_name": {
+      "type": "string",
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Display Name"
+     },
+     "password": {
+      "type": "string",
+      "maxLength": 256,
+      "minLength": 10,
+      "title": "Password"
+     },
+     "role": {
+      "type": "string",
+      "enum": [
+       "admin",
+       "reviewer",
+       "researcher"
+      ],
+      "title": "Role",
+      "default": "researcher"
+     }
+    },
+    "type": "object",
+    "required": [
+     "email",
+     "display_name",
+     "password"
+    ],
+    "title": "UserCreate"
+   },
+   "UserOut": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "email": {
+      "type": "string",
+      "title": "Email"
+     },
+     "display_name": {
+      "type": "string",
+      "title": "Display Name"
+     },
+     "reviewer_code": {
+      "type": "string",
+      "title": "Reviewer Code"
+     },
+     "role": {
+      "type": "string",
+      "title": "Role"
+     },
+     "is_active": {
+      "type": "boolean",
+      "title": "Is Active"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "last_login_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Login At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "email",
+     "display_name",
+     "reviewer_code",
+     "role",
+     "is_active",
+     "created_at"
+    ],
+    "title": "UserOut"
+   },
+   "UserUpdate": {
+    "properties": {
+     "role": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "admin",
+         "reviewer",
+         "researcher"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Role"
+     },
+     "is_active": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Is Active"
+     },
+     "display_name": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 120
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Display Name"
+     }
+    },
+    "type": "object",
+    "title": "UserUpdate"
+   },
+   "ValidationError": {
+    "properties": {
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "type": "array",
+      "title": "Location"
+     },
+     "msg": {
+      "type": "string",
+      "title": "Message"
+     },
+     "type": {
+      "type": "string",
+      "title": "Error Type"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "ctx": {
+      "type": "object",
+      "title": "Context"
+     }
+    },
+    "type": "object",
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError"
+   }
+  }
+ }
+}

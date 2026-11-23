@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
-from healthmisinfo.data.adapters.common import SchemaError, bytes_sha256, clean_str, parse_url_list
+from healthmisinfo.data.adapters.common import SchemaError, bytes_sha256, clean_str, parse_url_list, safe_url
 from healthmisinfo.data.records import AdapterResult, RawRecord
 
 SUPPORTED_LANGUAGES = {"ar", "en"}
@@ -112,7 +112,7 @@ def parse_generic(
                 original_label=clean_str(r.get(columns.label)) if columns.label else None,
                 original_labels={columns.label: clean_str(r.get(columns.label))} if columns.label else {},
                 source_category=clean_str(r.get(columns.category)) if columns.category else None,
-                source_url=clean_str(r.get(columns.source_url)) if columns.source_url else None,
+                source_url=safe_url(r.get(columns.source_url)) if columns.source_url else None,
                 evidence_urls=parse_url_list(r.get(columns.evidence_urls)) if columns.evidence_urls else [],
                 claim_date=clean_str(r.get(columns.date)) if columns.date else None,
                 group_key=clean_str(r.get(columns.group_key)) if columns.group_key else None,

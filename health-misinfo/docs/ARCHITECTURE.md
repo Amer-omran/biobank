@@ -104,16 +104,17 @@ Legend: ✅ done & tested · 🟡 implemented, needs external resource to run fu
 - ✅ Settings, DB layer, ORM models, Alembic migration, indexes
 - ✅ Auth (users, roles, JWT), rate limiting, CORS, error handling, audit log
 - ✅ All required endpoints + admin endpoints, OpenAPI
-- ✅ Tests (SQLite + PostgreSQL)
+- ✅ Tests: 56 backend tests pass on SQLite and on PostgreSQL 16; `alembic check` shows no drift
 
 ### Phase 3 — frontend
 - ✅ Bilingual (ar RTL / en LTR) Next.js app, all pages wired to real endpoints
-- ✅ Vitest tests (i18n key parity, components)
+- ✅ Vitest (11 tests: i18n parity, API client, result component) + Playwright e2e (14 steps, live stack)
 
 ### Phase 4 — data pipeline
 - ✅ Adapters: AraFacts, AraCOVID19-MFH (IDs only), PUBHEALTH (manual files), generic CSV/JSON
 - ✅ Conservative normalization, dedup, near-dup grouping, grouped split with verification
-- 🟡 Label mappings **await human approval** → no eligible training data until approved
+- 🟡 Label mappings **await human approval** → 0 eligible samples (see `DATA_STATUS.md`)
+- ❌ Even with all proposals approved, AraFacts health alone cannot form a valid 3-class split (3 NEEDS_REVIEW)
 
 ### Phase 5/6 — training & inference
 - ✅ Trainer pipeline, metrics, confusion matrix, temperature scaling, abstention, model card
@@ -121,5 +122,6 @@ Legend: ✅ done & tested · 🟡 implemented, needs external resource to run fu
 - 🟡 Real fine-tuning requires Hugging Face access (+ ideally a GPU) and approved mappings
 
 ### Phase 7 — deployment & docs
-- ✅ Dockerfiles, docker-compose, `.env.example`, bilingual README, methodology, privacy, API docs
+- ✅ Dockerfiles, docker-compose (validated with `docker compose config`), `.env.example`, bilingual README, methodology, privacy, API docs
+- ✅ Smoke test (14 API checks), pip-audit and npm audit clean, ruff (incl. bandit rules) clean
 - 🟡 `docker compose up` not executed here (no Docker daemon)

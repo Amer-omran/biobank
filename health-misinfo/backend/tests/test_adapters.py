@@ -16,6 +16,7 @@ def test_parse_url_list_variants():
     assert parse_url_list("()") == []
     assert parse_url_list("https://a|https://b") == ["https://a", "https://b"]
     assert parse_url_list("__import__('os')") == []  # literal_eval only – never executes code
+    assert parse_url_list("('javascript:alert(1)', 'https://ok.org')") == ["https://ok.org"]
 
 
 def test_arafacts_health_filter_preserves_original_labels_and_drops_claim_urls():
@@ -58,6 +59,12 @@ def test_pubhealth_adapter(tmp_path):
     assert res.records[0].extra["original_split"] == "train"
     with pytest.raises(SchemaError, match="Download PUBHEALTH"):
         load_pubhealth(tmp_path)
+
+
+def test_generic_rejects_non_http_source_urls():
+    data = b"text,url\nGarlic cures flu quickly,javascript:alert(1)\nVitamins claim text here,https://fc.org/1\n"
+    recs = parse_generic(data, "x.csv", "en", ColumnMapping(text="text", label=None, source_url="url")).adapter.records
+    assert [r.source_url for r in recs] == [None, "https://fc.org/1"]
 
 
 def test_generic_csv_and_json_with_row_errors():
