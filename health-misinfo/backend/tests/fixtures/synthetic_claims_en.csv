@@ -1,0 +1,64 @@
+id,text,label,is_synthetic,group_key
+SYN-EN-026,[SYNTHETIC] a secret kitchen spice instantly cures malaria overnight,MISLEADING,true,SYN-EN-MISLEADING-0-malaria
+SYN-EN-063,[SYNTHETIC] an unverified post claims a clinic found a link with asthma,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-2-asthma
+SYN-EN-036,[SYNTHETIC] doctors are hiding that lemon water removes influenza forever,MISLEADING,true,SYN-EN-MISLEADING-2-influenza
+SYN-EN-010,[SYNTHETIC] health authorities recommend vaccination schedules for cholera,SUPPORTED,true,SYN-EN-SUPPORTED-1-cholera
+SYN-EN-003,[SYNTHETIC] regular handwashing with soap lowers the spread of cholera,SUPPORTED,true,SYN-EN-SUPPORTED-0-cholera
+SYN-EN-006,[SYNTHETIC] regular handwashing with soap lowers the spread of hepatitis,SUPPORTED,true,SYN-EN-SUPPORTED-0-hepatitis
+SYN-EN-023,[SYNTHETIC] a secret kitchen spice instantly cures measles overnight,MISLEADING,true,SYN-EN-MISLEADING-0-measles
+SYN-EN-033,[SYNTHETIC] mobile phone towers cause malaria in every city,MISLEADING,true,SYN-EN-MISLEADING-1-malaria
+SYN-EN-027,[SYNTHETIC] a secret kitchen spice instantly cures hepatitis overnight,MISLEADING,true,SYN-EN-MISLEADING-0-hepatitis
+SYN-EN-045,[SYNTHETIC] a new unpublished study suggests a herb may affect cholera,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-0-cholera
+SYN-EN-058,[SYNTHETIC] an unverified post claims a clinic found a link with measles,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-2-measles
+SYN-EN-020,[SYNTHETIC] drinking clean water reduces the risk of hepatitis,SUPPORTED,true,SYN-EN-SUPPORTED-2-hepatitis
+SYN-EN-030,[SYNTHETIC] mobile phone towers cause measles in every city,MISLEADING,true,SYN-EN-MISLEADING-1-measles
+SYN-EN-004,[SYNTHETIC] regular handwashing with soap lowers the spread of diabetes,SUPPORTED,true,SYN-EN-SUPPORTED-0-diabetes
+SYN-EN-011,[SYNTHETIC] health authorities recommend vaccination schedules for diabetes,SUPPORTED,true,SYN-EN-SUPPORTED-1-diabetes
+SYN-EN-019,[SYNTHETIC] drinking clean water reduces the risk of malaria,SUPPORTED,true,SYN-EN-SUPPORTED-2-malaria
+SYN-EN-012,[SYNTHETIC] health authorities recommend vaccination schedules for malaria,SUPPORTED,true,SYN-EN-SUPPORTED-1-malaria
+SYN-EN-044,[SYNTHETIC] a new unpublished study suggests a herb may affect measles,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-0-measles
+SYN-EN-040,[SYNTHETIC] doctors are hiding that lemon water removes malaria forever,MISLEADING,true,SYN-EN-MISLEADING-2-malaria
+SYN-EN-016,[SYNTHETIC] drinking clean water reduces the risk of measles,SUPPORTED,true,SYN-EN-SUPPORTED-2-measles
+SYN-EN-043,[SYNTHETIC] a new unpublished study suggests a herb may affect influenza,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-0-influenza
+SYN-EN-056,[SYNTHETIC] some people report that a supplement changes asthma symptoms,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-1-asthma
+SYN-EN-057,[SYNTHETIC] an unverified post claims a clinic found a link with influenza,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-2-influenza
+SYN-EN-047,[SYNTHETIC] a new unpublished study suggests a herb may affect malaria,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-0-malaria
+SYN-EN-024,[SYNTHETIC] a secret kitchen spice instantly cures cholera overnight,MISLEADING,true,SYN-EN-MISLEADING-0-cholera
+SYN-EN-054,[SYNTHETIC] some people report that a supplement changes malaria symptoms,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-1-malaria
+SYN-EN-062,[SYNTHETIC] an unverified post claims a clinic found a link with hepatitis,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-2-hepatitis
+SYN-EN-022,[SYNTHETIC] a secret kitchen spice instantly cures influenza overnight,MISLEADING,true,SYN-EN-MISLEADING-0-influenza
+SYN-EN-013,[SYNTHETIC] health authorities recommend vaccination schedules for hepatitis,SUPPORTED,true,SYN-EN-SUPPORTED-1-hepatitis
+SYN-EN-041,[SYNTHETIC] doctors are hiding that lemon water removes hepatitis forever,MISLEADING,true,SYN-EN-MISLEADING-2-hepatitis
+SYN-EN-060,[SYNTHETIC] an unverified post claims a clinic found a link with diabetes,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-2-diabetes
+SYN-EN-051,[SYNTHETIC] some people report that a supplement changes measles symptoms,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-1-measles
+SYN-EN-034,[SYNTHETIC] mobile phone towers cause hepatitis in every city,MISLEADING,true,SYN-EN-MISLEADING-1-hepatitis
+SYN-EN-035,[SYNTHETIC] mobile phone towers cause asthma in every city,MISLEADING,true,SYN-EN-MISLEADING-1-asthma
+SYN-EN-046,[SYNTHETIC] a new unpublished study suggests a herb may affect diabetes,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-0-diabetes
+SYN-EN-021,[SYNTHETIC] drinking clean water reduces the risk of asthma,SUPPORTED,true,SYN-EN-SUPPORTED-2-asthma
+SYN-EN-048,[SYNTHETIC] a new unpublished study suggests a herb may affect hepatitis,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-0-hepatitis
+SYN-EN-038,[SYNTHETIC] doctors are hiding that lemon water removes cholera forever,MISLEADING,true,SYN-EN-MISLEADING-2-cholera
+SYN-EN-015,[SYNTHETIC] drinking clean water reduces the risk of influenza,SUPPORTED,true,SYN-EN-SUPPORTED-2-influenza
+SYN-EN-018,[SYNTHETIC] drinking clean water reduces the risk of diabetes,SUPPORTED,true,SYN-EN-SUPPORTED-2-diabetes
+SYN-EN-053,[SYNTHETIC] some people report that a supplement changes diabetes symptoms,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-1-diabetes
+SYN-EN-001,[SYNTHETIC] regular handwashing with soap lowers the spread of influenza,SUPPORTED,true,SYN-EN-SUPPORTED-0-influenza
+SYN-EN-039,[SYNTHETIC] doctors are hiding that lemon water removes diabetes forever,MISLEADING,true,SYN-EN-MISLEADING-2-diabetes
+SYN-EN-028,[SYNTHETIC] a secret kitchen spice instantly cures asthma overnight,MISLEADING,true,SYN-EN-MISLEADING-0-asthma
+SYN-EN-050,[SYNTHETIC] some people report that a supplement changes influenza symptoms,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-1-influenza
+SYN-EN-002,[SYNTHETIC] regular handwashing with soap lowers the spread of measles,SUPPORTED,true,SYN-EN-SUPPORTED-0-measles
+SYN-EN-061,[SYNTHETIC] an unverified post claims a clinic found a link with malaria,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-2-malaria
+SYN-EN-007,[SYNTHETIC] regular handwashing with soap lowers the spread of asthma,SUPPORTED,true,SYN-EN-SUPPORTED-0-asthma
+SYN-EN-014,[SYNTHETIC] health authorities recommend vaccination schedules for asthma,SUPPORTED,true,SYN-EN-SUPPORTED-1-asthma
+SYN-EN-025,[SYNTHETIC] a secret kitchen spice instantly cures diabetes overnight,MISLEADING,true,SYN-EN-MISLEADING-0-diabetes
+SYN-EN-042,[SYNTHETIC] doctors are hiding that lemon water removes asthma forever,MISLEADING,true,SYN-EN-MISLEADING-2-asthma
+SYN-EN-031,[SYNTHETIC] mobile phone towers cause cholera in every city,MISLEADING,true,SYN-EN-MISLEADING-1-cholera
+SYN-EN-029,[SYNTHETIC] mobile phone towers cause influenza in every city,MISLEADING,true,SYN-EN-MISLEADING-1-influenza
+SYN-EN-059,[SYNTHETIC] an unverified post claims a clinic found a link with cholera,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-2-cholera
+SYN-EN-032,[SYNTHETIC] mobile phone towers cause diabetes in every city,MISLEADING,true,SYN-EN-MISLEADING-1-diabetes
+SYN-EN-008,[SYNTHETIC] health authorities recommend vaccination schedules for influenza,SUPPORTED,true,SYN-EN-SUPPORTED-1-influenza
+SYN-EN-017,[SYNTHETIC] drinking clean water reduces the risk of cholera,SUPPORTED,true,SYN-EN-SUPPORTED-2-cholera
+SYN-EN-005,[SYNTHETIC] regular handwashing with soap lowers the spread of malaria,SUPPORTED,true,SYN-EN-SUPPORTED-0-malaria
+SYN-EN-049,[SYNTHETIC] a new unpublished study suggests a herb may affect asthma,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-0-asthma
+SYN-EN-052,[SYNTHETIC] some people report that a supplement changes cholera symptoms,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-1-cholera
+SYN-EN-055,[SYNTHETIC] some people report that a supplement changes hepatitis symptoms,NEEDS_REVIEW,true,SYN-EN-NEEDS_REVIEW-1-hepatitis
+SYN-EN-037,[SYNTHETIC] doctors are hiding that lemon water removes measles forever,MISLEADING,true,SYN-EN-MISLEADING-2-measles
+SYN-EN-009,[SYNTHETIC] health authorities recommend vaccination schedules for measles,SUPPORTED,true,SYN-EN-SUPPORTED-1-measles

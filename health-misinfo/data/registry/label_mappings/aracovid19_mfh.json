@@ -1,0 +1,10 @@
+{
+  "source_key": "aracovid19_mfh",
+  "mapping_version": "aracovid19_mfh-v0-none",
+  "maps_from_field": "Contains_Fake_Information",
+  "target_scheme": {"0": "SUPPORTED", "1": "MISLEADING", "2": "NEEDS_REVIEW"},
+  "_policy": "NO mapping is proposed. AraCOVID19-MFH labels are multi-label social-media annotations; 'Contains_Fake_Information = No' does not mean 'supported by reliable evidence'. All 10 original label columns are preserved verbatim in dataset_samples.extra. The dataset is also text-less (tweet IDs only) and has no license file. A defensible mapping must be designed and approved by the research team before any entry is added here.",
+  "approved_by": null,
+  "approved_at": null,
+  "entries": []
+}

@@ -1,0 +1,172 @@
+{
+  "_comment": "Source provenance & license registry. Every field below was checked on 2026-11-23 against the official source unless marked otherwise. license_status values: verified | unclear_needs_review | unknown | not_a_dataset. Do NOT change a status to 'verified' without recording who checked it and the evidence. This file is seeded into the source_registry table by `python -m healthmisinfo.cli seed-registry`.",
+  "registry_version": "2026-11-23.1",
+  "sources": [
+    {
+      "key": "arafacts",
+      "name": "AraFacts (v2, 2024-06-23 update)",
+      "languages": ["ar"],
+      "official_url": "https://gitlab.com/bigirqu/AraFacts",
+      "paper_url": "https://aclanthology.org/2021.wanlp-1.26/",
+      "access_method": "git clone https://gitlab.com/bigirqu/AraFacts.git (file: Dataset/AraFacts 2/AraFacts 2.csv)",
+      "verified_revision": "69d48d39afaec609d7040c446c2e2691b85fa86b",
+      "verified_file_sha256": {
+        "Dataset/AraFacts 2/AraFacts 2.csv": "7f6682e2c1c59fadbff8769858c42b9e061841d5e1e4ff694b515ff6f90f24e2"
+      },
+      "license_name": "CC BY-NC 4.0 (Attribution-NonCommercial 4.0 International)",
+      "license_url": "https://creativecommons.org/licenses/by-nc/4.0/",
+      "license_evidence": "LICENSE file at repository root (revision above) contains the full CC BY-NC 4.0 legal code.",
+      "license_status": "verified",
+      "commercial_use_allowed": false,
+      "redistribution_allowed": "non-commercial, with attribution and indication of changes",
+      "attribution_required": true,
+      "text_available": true,
+      "schema_verified": ["ClaimID", "claim", "description", "source", "date", "source_label", "normalized_label", "source_category", "normalized_category", "source_url", "claim_urls", "evidence_urls", "evidence_urls.1", "claim_type"],
+      "observed_counts": {
+        "total_rows": 18598,
+        "normalized_category_Health": 756,
+        "health_normalized_label": {"FALSE": 447, "Partly-false": 253, "TRUE": 41, "Sarcasm": 11, "Unverifiable": 4},
+        "health_claim_type": {"text(0)": 411, "image(1)": 161, "video(2)": 184}
+      },
+      "citation": "@inproceedings{arafacts2021, title={AraFacts: The First Large Arabic Dataset of Naturally-Occurring Professionally-Verified Claims}, author={Sheikh Ali, Zien and Mansour, Watheq and Elsayed, Tamer and Al-Ali, Abdulaziz}, booktitle={Proceedings of the Sixth Arabic Natural Language Processing Workshop}, publisher={Association for Computational Linguistics}, year={2021}}",
+      "training_use_status": "permitted_pending_label_mapping_approval",
+      "notes": [
+        "Claims are labelled by professional fact-checkers (Misbar, Fatabyyano, AFP Factuel, Verify-Sy, Maharat-news).",
+        "Only 756 of 18,598 claims carry the 'Health' normalized category; this alone cannot reach the 3,000-Arabic target. 5,366 claims are UNCATEGORIZED and may contain further health claims, but adding them requires a human-reviewed health filter.",
+        "The authors' normalized 'True' bucket includes 'انتقائي' (selective) and 'مجتزأ' (cut/out-of-context), which are arguably misleading. We therefore map from source_label, not normalized_label, and every mapping entry starts as 'proposed'.",
+        "Raw data is NOT committed to this repository; it is fetched by scripts/fetch_datasets.sh into data/raw/ (gitignored)."
+      ]
+    },
+    {
+      "key": "aracovid19_mfh",
+      "name": "AraCOVID19-MFH V1.0",
+      "languages": ["ar"],
+      "official_url": "https://github.com/HadjAmeur/AraCovid19-MFH",
+      "paper_url": "https://doi.org/10.1016/j.procs.2021.05.086",
+      "access_method": "git clone https://github.com/HadjAmeur/AraCovid19-MFH.git (file: AraCOVID19-MFH_V1.0.csv, ';'-separated)",
+      "verified_revision": "2078c7b5a9e17a623477fdb7486411a6aed07dce",
+      "verified_file_sha256": {
+        "AraCOVID19-MFH_V1.0.csv": "6c439f96f4fcfcfb1a77c5dd38a802e1879c81f174687e33330e813c844569ea"
+      },
+      "license_name": "NONE FOUND",
+      "license_url": null,
+      "license_evidence": "The official repository contains no LICENSE file and the README states no license; it only asks users to cite the paper. The paper's (Procedia CS, Elsevier) license is NOT the dataset license.",
+      "license_status": "unclear_needs_review",
+      "commercial_use_allowed": null,
+      "redistribution_allowed": null,
+      "attribution_required": true,
+      "text_available": false,
+      "schema_verified": ["Tweet_ID", "Blame_Negative_Demoralizing_Speech", "Contains_Fake_Information", "Dialect", "Factual", "Give_Advice", "Hate_Speech", "News_or_Opinion", "Rise_Moral", "Talk_About_Cure_or_Vaccine", "Worth_Fact-checking"],
+      "observed_counts": {
+        "total_rows": 10828,
+        "Contains_Fake_Information": {"Can't decide": 6281, "No": 2249, "Maybe": 1839, "Yes": 459},
+        "Factual": {"Is Verifiable": 4480, "Can't decide": 3342, "Is Not Verifiable": 3006}
+      },
+      "citation": "@article{HADJAMEUR2021232, title={AraCOVID19-MFH: Arabic COVID-19 Multi-label Fake News & Hate Speech Detection Dataset}, journal={Procedia Computer Science}, volume={189}, pages={232-241}, year={2021}, doi={10.1016/j.procs.2021.05.086}, author={Mohamed Seghir Hadj Ameur and Hassina Aliane}}",
+      "training_use_status": "blocked_text_unavailable_and_license_unclear",
+      "notes": [
+        "The public release contains ONLY tweet IDs plus 10 label columns; tweet text is not distributed. Text would have to be hydrated through the X (Twitter) API, which requires credentials and is subject to X's developer terms; deleted tweets cannot be recovered.",
+        "Labels are multi-label social-media annotations (e.g. Contains_Fake_Information = Yes/No/Maybe/Can't decide). 'No fake information' is NOT the same as 'supported by reliable evidence', so no mapping to the 3-class scheme is assumed. Original labels are preserved as-is.",
+        "Requires: (1) written permission or a license from the authors, (2) a lawful hydration route, (3) an approved label mapping, before any training use."
+      ]
+    },
+    {
+      "key": "pubhealth",
+      "name": "PUBHEALTH (Explainable Fact-Checking for Public Health Claims) v1.0",
+      "languages": ["en"],
+      "official_url": "https://github.com/neemakot/Health-Fact-Checking",
+      "paper_url": "https://aclanthology.org/2020.emnlp-main.623",
+      "access_method": "Official data link in repository data/README.md points to Google Drive file id 1eTtRs5cUlBP5dXsx-FTAlmXuB6JQi2qj (PUBHEALTH.zip with train.tsv/dev.tsv/test.tsv). Google Drive and Hugging Face are NOT reachable from the build environment, so the files must be placed manually in data/manual/pubhealth/.",
+      "verified_revision": "02136d3e0f5859af5ad5b862324511b6ab8b9058",
+      "verified_file_sha256": {},
+      "license_name": "MIT (repository LICENSE)",
+      "license_url": "https://github.com/neemakot/Health-Fact-Checking/blob/master/LICENSE",
+      "license_evidence": "Repository LICENSE is MIT (Copyright 2020 Neema Kotonya). The data itself is hosted separately on Google Drive; the repository datasheet does not state a separate data license. Claims/explanations originate from third-party fact-checking and news sites (e.g. Snopes, PolitiFact, Reuters), whose own terms may restrict redistribution of their text.",
+      "license_status": "unclear_needs_review",
+      "commercial_use_allowed": null,
+      "redistribution_allowed": "MIT per repository; third-party text redistribution unverified - do not redistribute raw text",
+      "attribution_required": true,
+      "text_available": true,
+      "schema_verified": [],
+      "schema_documented": ["claim_id", "claim", "date_published", "explanation", "fact_checkers", "main_text", "sources", "label", "subjects"],
+      "observed_counts": {"documented_total": 12279, "documented_train": 9817, "documented_dev": 1227, "documented_test": 1235},
+      "citation": "@inproceedings{kotonya-toni-2020-explainable, title={Explainable Automated Fact-Checking for Public Health Claims}, author={Kotonya, Neema and Toni, Francesca}, booktitle={Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP)}, pages={7740--7754}, year={2020}, publisher={Association for Computational Linguistics}, doi={10.18653/v1/2020.emnlp-main.623}}",
+      "training_use_status": "blocked_not_downloaded",
+      "notes": [
+        "Schema above is from the repository documentation; it will be verified by the adapter when the files are provided. The repository README lists test.tsv without a label column, while published loaders include labels for test; the adapter checks the real columns and refuses to guess.",
+        "Labels: true / false / mixture / unproven (documented). Mapping to the 3-class scheme starts as 'proposed'."
+      ]
+    },
+    {
+      "key": "moh_sa_open_data",
+      "name": "Saudi Ministry of Health open data",
+      "languages": ["ar", "en"],
+      "official_url": "https://od.data.gov.sa/ (national portal) / https://www.moh.gov.sa/",
+      "paper_url": null,
+      "access_method": "Not reachable from the build environment (network policy). Must be downloaded manually.",
+      "verified_revision": null,
+      "verified_file_sha256": {},
+      "license_name": "NOT VERIFIED",
+      "license_url": null,
+      "license_evidence": "Not checked - site not reachable from build environment.",
+      "license_status": "unknown",
+      "commercial_use_allowed": null,
+      "redistribution_allowed": null,
+      "attribution_required": null,
+      "text_available": false,
+      "schema_verified": [],
+      "observed_counts": {},
+      "citation": null,
+      "training_use_status": "evidence_context_only",
+      "notes": [
+        "Intended use: contextual EVIDENCE and expert-constructed claims. Any claim constructed from it must be written and reviewed by a qualified human expert, stored with is_synthetic=false only if it is a genuine expert-authored claim, and its provenance recorded. No claims are generated automatically."
+      ]
+    },
+    {
+      "key": "who",
+      "name": "World Health Organization (fact sheets, Q&A, mythbusters)",
+      "languages": ["ar", "en"],
+      "official_url": "https://www.who.int/",
+      "paper_url": null,
+      "access_method": "Not reachable from the build environment. Used only as a human-verification reference link.",
+      "verified_revision": null,
+      "verified_file_sha256": {},
+      "license_name": "WHO copyright; many publications CC BY-NC-SA 3.0 IGO (per-document)",
+      "license_url": "https://www.who.int/about/policies/publishing/copyright",
+      "license_evidence": "Not re-verified in this environment; per-document licensing must be checked.",
+      "license_status": "not_a_dataset",
+      "commercial_use_allowed": null,
+      "redistribution_allowed": null,
+      "attribution_required": true,
+      "text_available": false,
+      "schema_verified": [],
+      "observed_counts": {},
+      "citation": null,
+      "training_use_status": "evidence_reference_only",
+      "notes": ["Shown to users as a place to verify claims. It is never cited as evidence for a specific prediction unless a reviewer attaches a specific URL."]
+    },
+    {
+      "key": "pubmed",
+      "name": "PubMed (NCBI E-utilities)",
+      "languages": ["en"],
+      "official_url": "https://pubmed.ncbi.nlm.nih.gov/",
+      "paper_url": null,
+      "access_method": "E-utilities API (eutils.ncbi.nlm.nih.gov) - not reachable from the build environment.",
+      "verified_revision": null,
+      "verified_file_sha256": {},
+      "license_name": "Abstracts subject to publisher copyright; NCBI usage policies apply",
+      "license_url": "https://www.ncbi.nlm.nih.gov/home/about/policies/",
+      "license_evidence": "Not re-verified in this environment.",
+      "license_status": "not_a_dataset",
+      "commercial_use_allowed": null,
+      "redistribution_allowed": null,
+      "attribution_required": true,
+      "text_available": false,
+      "schema_verified": [],
+      "observed_counts": {},
+      "citation": null,
+      "training_use_status": "evidence_reference_only",
+      "notes": ["Potential evidence-retrieval source for reviewers. Absence of a PubMed hit is never treated as evidence that a claim is false."]
+    }
+  ]
+}

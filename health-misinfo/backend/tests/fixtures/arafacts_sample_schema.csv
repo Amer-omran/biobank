@@ -1,0 +1,7 @@
+ClaimID,claim,description,source,date,source_label,normalized_label,source_category,normalized_category,source_url,claim_urls,evidence_urls,evidence_urls.1,claim_type
+SYN_1,[SYNTHETIC] الثوم يعالج الإنفلونزا خلال يوم واحد,,Misbar,2023-01-01,زائف,FALSE,صحة,Health,https://example.org/fc/1,"('https://social.example/u/1',)","('https://who.example/a',)",(),0
+SYN_2,[SYNTHETIC] الثوم يعالج الانفلونزا خلال يوم واحد!,,Fatabayyano,2023-01-02,fake,FALSE,health,Health,https://example.org/fc/2,(),(),(),1
+SYN_3,[SYNTHETIC] غسل اليدين يقلل انتشار العدوى,,AFP,2023-01-03,صحيح,TRUE,صحة,Health,https://example.org/fc/3,(),"('https://who.example/b', 'https://moh.example/c')",(),0
+SYN_4,[SYNTHETIC] مباراة كرة القدم تأجلت,,Misbar,2023-01-04,زائف,FALSE,رياضة,Miscellaneous news,https://example.org/fc/4,(),(),(),0
+SYN_5,[SYNTHETIC] لقطة ساخرة عن الطبيب,,Misbar,2023-01-05,ساخر,Sarcasm,صحة,Health,https://example.org/fc/5,(),(),(),2
+SYN_6,[SYNTHETIC] دواء جديد مشكوك فيه للسكري,,Fatabayyano,2023-01-06,مشكوك فيه,Partly-false,طبي,Health,https://example.org/fc/6,(),(),(),0

@@ -1,0 +1,4 @@
+claim_id	claim	date_published	explanation	fact_checkers	main_text	sources	label	subjects
+s1	[SYNTHETIC] Vitamin X cures all colds	2020-01-01	synthetic	Tester	synthetic	https://example.org/a	false	Health
+s2	[SYNTHETIC] Handwashing reduces infections	2020-01-02	synthetic	Tester	synthetic	https://example.org/b	true	Health
+s3	[SYNTHETIC] A herb may help sleep	2020-01-03	synthetic	Tester	synthetic		mixture	Health

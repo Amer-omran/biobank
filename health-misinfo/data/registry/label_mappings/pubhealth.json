@@ -1,0 +1,15 @@
+{
+  "source_key": "pubhealth",
+  "mapping_version": "pubhealth-v1-proposal",
+  "maps_from_field": "label",
+  "target_scheme": {"0": "SUPPORTED", "1": "MISLEADING", "2": "NEEDS_REVIEW"},
+  "_policy": "Only 'approved' entries are applied; see arafacts.json for the approval procedure. Labels are matched case-insensitively after trimming. Any label value not listed here (including empty or -1) is excluded with reason 'unmapped_label'.",
+  "approved_by": null,
+  "approved_at": null,
+  "entries": [
+    {"original": "true", "proposed_label": "SUPPORTED", "status": "proposed", "ambiguity": "low", "rationale": "Fact-checker verdict 'true'."},
+    {"original": "false", "proposed_label": "MISLEADING", "status": "proposed", "ambiguity": "low", "rationale": "Fact-checker verdict 'false'."},
+    {"original": "unproven", "proposed_label": "NEEDS_REVIEW", "status": "proposed", "ambiguity": "low", "rationale": "Insufficient evidence: matches NEEDS_REVIEW definition."},
+    {"original": "mixture", "proposed_label": "NEEDS_REVIEW", "status": "proposed", "ambiguity": "high", "rationale": "Partly true / partly false: conflicting evidence.", "alternatives": ["MISLEADING"]}
+  ]
+}

@@ -1,0 +1,7 @@
+# Training + model serving (optional for the API: without these, models report "runtime_unavailable")
+-r requirements.txt
+torch==2.15.0
+transformers==5.24.0
+accelerate==1.16.0
+safetensors==0.8.0
+matplotlib==3.11.2

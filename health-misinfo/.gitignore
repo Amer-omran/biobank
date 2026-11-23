@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+*.egg-info/
+
+# Local databases
+*.db
+*.sqlite3
+
+# Data: raw/third-party and generated data are never committed (licenses + size)
+data/raw/
+data/manual/*
+!data/manual/README.md
+data/processed/*
+!data/processed/README.md
+
+# Model checkpoints / run artefacts
+models/*
+!models/README.md
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/coverage/
+frontend/next-env.d.ts
+frontend/*.tsbuildinfo
+frontend/test-results/
+frontend/playwright-report/

@@ -1,0 +1,64 @@
+id,text,label,is_synthetic,group_key
+SYN-AR-050,[SYNTHETIC] يقول بعض الناس إن مكملا غذائيا يغير أعراض الإنفلونزا,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-1-الإنفلونزا
+SYN-AR-032,[SYNTHETIC] أبراج الهاتف المحمول تسبب السكري في كل مدينة,MISLEADING,true,SYN-AR-MISLEADING-1-السكري
+SYN-AR-042,[SYNTHETIC] الأطباء يخفون أن ماء الليمون يزيل الربو نهائيا,MISLEADING,true,SYN-AR-MISLEADING-2-الربو
+SYN-AR-010,[SYNTHETIC] توصي الجهات الصحية بجدول التطعيم ضد الكوليرا,SUPPORTED,true,SYN-AR-SUPPORTED-1-الكوليرا
+SYN-AR-016,[SYNTHETIC] شرب الماء النظيف يقلل خطر الإصابة بـ الحصبة,SUPPORTED,true,SYN-AR-SUPPORTED-2-الحصبة
+SYN-AR-059,[SYNTHETIC] منشور غير موثق يزعم أن عيادة وجدت علاقة مع الكوليرا,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-2-الكوليرا
+SYN-AR-007,[SYNTHETIC] غسل اليدين بالماء والصابون يقلل انتشار الربو,SUPPORTED,true,SYN-AR-SUPPORTED-0-الربو
+SYN-AR-021,[SYNTHETIC] شرب الماء النظيف يقلل خطر الإصابة بـ الربو,SUPPORTED,true,SYN-AR-SUPPORTED-2-الربو
+SYN-AR-037,[SYNTHETIC] الأطباء يخفون أن ماء الليمون يزيل الحصبة نهائيا,MISLEADING,true,SYN-AR-MISLEADING-2-الحصبة
+SYN-AR-031,[SYNTHETIC] أبراج الهاتف المحمول تسبب الكوليرا في كل مدينة,MISLEADING,true,SYN-AR-MISLEADING-1-الكوليرا
+SYN-AR-044,[SYNTHETIC] دراسة جديدة غير منشورة تشير إلى أن عشبة قد تؤثر في الحصبة,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-0-الحصبة
+SYN-AR-027,[SYNTHETIC] توابل سرية في المطبخ تعالج التهاب الكبد خلال ليلة واحدة,MISLEADING,true,SYN-AR-MISLEADING-0-التهاب الكبد
+SYN-AR-040,[SYNTHETIC] الأطباء يخفون أن ماء الليمون يزيل الملاريا نهائيا,MISLEADING,true,SYN-AR-MISLEADING-2-الملاريا
+SYN-AR-030,[SYNTHETIC] أبراج الهاتف المحمول تسبب الحصبة في كل مدينة,MISLEADING,true,SYN-AR-MISLEADING-1-الحصبة
+SYN-AR-009,[SYNTHETIC] توصي الجهات الصحية بجدول التطعيم ضد الحصبة,SUPPORTED,true,SYN-AR-SUPPORTED-1-الحصبة
+SYN-AR-005,[SYNTHETIC] غسل اليدين بالماء والصابون يقلل انتشار الملاريا,SUPPORTED,true,SYN-AR-SUPPORTED-0-الملاريا
+SYN-AR-019,[SYNTHETIC] شرب الماء النظيف يقلل خطر الإصابة بـ الملاريا,SUPPORTED,true,SYN-AR-SUPPORTED-2-الملاريا
+SYN-AR-036,[SYNTHETIC] الأطباء يخفون أن ماء الليمون يزيل الإنفلونزا نهائيا,MISLEADING,true,SYN-AR-MISLEADING-2-الإنفلونزا
+SYN-AR-023,[SYNTHETIC] توابل سرية في المطبخ تعالج الحصبة خلال ليلة واحدة,MISLEADING,true,SYN-AR-MISLEADING-0-الحصبة
+SYN-AR-001,[SYNTHETIC] غسل اليدين بالماء والصابون يقلل انتشار الإنفلونزا,SUPPORTED,true,SYN-AR-SUPPORTED-0-الإنفلونزا
+SYN-AR-022,[SYNTHETIC] توابل سرية في المطبخ تعالج الإنفلونزا خلال ليلة واحدة,MISLEADING,true,SYN-AR-MISLEADING-0-الإنفلونزا
+SYN-AR-008,[SYNTHETIC] توصي الجهات الصحية بجدول التطعيم ضد الإنفلونزا,SUPPORTED,true,SYN-AR-SUPPORTED-1-الإنفلونزا
+SYN-AR-025,[SYNTHETIC] توابل سرية في المطبخ تعالج السكري خلال ليلة واحدة,MISLEADING,true,SYN-AR-MISLEADING-0-السكري
+SYN-AR-034,[SYNTHETIC] أبراج الهاتف المحمول تسبب التهاب الكبد في كل مدينة,MISLEADING,true,SYN-AR-MISLEADING-1-التهاب الكبد
+SYN-AR-057,[SYNTHETIC] منشور غير موثق يزعم أن عيادة وجدت علاقة مع الإنفلونزا,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-2-الإنفلونزا
+SYN-AR-049,[SYNTHETIC] دراسة جديدة غير منشورة تشير إلى أن عشبة قد تؤثر في الربو,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-0-الربو
+SYN-AR-047,[SYNTHETIC] دراسة جديدة غير منشورة تشير إلى أن عشبة قد تؤثر في الملاريا,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-0-الملاريا
+SYN-AR-013,[SYNTHETIC] توصي الجهات الصحية بجدول التطعيم ضد التهاب الكبد,SUPPORTED,true,SYN-AR-SUPPORTED-1-التهاب الكبد
+SYN-AR-051,[SYNTHETIC] يقول بعض الناس إن مكملا غذائيا يغير أعراض الحصبة,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-1-الحصبة
+SYN-AR-015,[SYNTHETIC] شرب الماء النظيف يقلل خطر الإصابة بـ الإنفلونزا,SUPPORTED,true,SYN-AR-SUPPORTED-2-الإنفلونزا
+SYN-AR-012,[SYNTHETIC] توصي الجهات الصحية بجدول التطعيم ضد الملاريا,SUPPORTED,true,SYN-AR-SUPPORTED-1-الملاريا
+SYN-AR-002,[SYNTHETIC] غسل اليدين بالماء والصابون يقلل انتشار الحصبة,SUPPORTED,true,SYN-AR-SUPPORTED-0-الحصبة
+SYN-AR-045,[SYNTHETIC] دراسة جديدة غير منشورة تشير إلى أن عشبة قد تؤثر في الكوليرا,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-0-الكوليرا
+SYN-AR-018,[SYNTHETIC] شرب الماء النظيف يقلل خطر الإصابة بـ السكري,SUPPORTED,true,SYN-AR-SUPPORTED-2-السكري
+SYN-AR-046,[SYNTHETIC] دراسة جديدة غير منشورة تشير إلى أن عشبة قد تؤثر في السكري,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-0-السكري
+SYN-AR-029,[SYNTHETIC] أبراج الهاتف المحمول تسبب الإنفلونزا في كل مدينة,MISLEADING,true,SYN-AR-MISLEADING-1-الإنفلونزا
+SYN-AR-035,[SYNTHETIC] أبراج الهاتف المحمول تسبب الربو في كل مدينة,MISLEADING,true,SYN-AR-MISLEADING-1-الربو
+SYN-AR-063,[SYNTHETIC] منشور غير موثق يزعم أن عيادة وجدت علاقة مع الربو,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-2-الربو
+SYN-AR-033,[SYNTHETIC] أبراج الهاتف المحمول تسبب الملاريا في كل مدينة,MISLEADING,true,SYN-AR-MISLEADING-1-الملاريا
+SYN-AR-026,[SYNTHETIC] توابل سرية في المطبخ تعالج الملاريا خلال ليلة واحدة,MISLEADING,true,SYN-AR-MISLEADING-0-الملاريا
+SYN-AR-041,[SYNTHETIC] الأطباء يخفون أن ماء الليمون يزيل التهاب الكبد نهائيا,MISLEADING,true,SYN-AR-MISLEADING-2-التهاب الكبد
+SYN-AR-028,[SYNTHETIC] توابل سرية في المطبخ تعالج الربو خلال ليلة واحدة,MISLEADING,true,SYN-AR-MISLEADING-0-الربو
+SYN-AR-060,[SYNTHETIC] منشور غير موثق يزعم أن عيادة وجدت علاقة مع السكري,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-2-السكري
+SYN-AR-038,[SYNTHETIC] الأطباء يخفون أن ماء الليمون يزيل الكوليرا نهائيا,MISLEADING,true,SYN-AR-MISLEADING-2-الكوليرا
+SYN-AR-003,[SYNTHETIC] غسل اليدين بالماء والصابون يقلل انتشار الكوليرا,SUPPORTED,true,SYN-AR-SUPPORTED-0-الكوليرا
+SYN-AR-053,[SYNTHETIC] يقول بعض الناس إن مكملا غذائيا يغير أعراض السكري,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-1-السكري
+SYN-AR-014,[SYNTHETIC] توصي الجهات الصحية بجدول التطعيم ضد الربو,SUPPORTED,true,SYN-AR-SUPPORTED-1-الربو
+SYN-AR-039,[SYNTHETIC] الأطباء يخفون أن ماء الليمون يزيل السكري نهائيا,MISLEADING,true,SYN-AR-MISLEADING-2-السكري
+SYN-AR-017,[SYNTHETIC] شرب الماء النظيف يقلل خطر الإصابة بـ الكوليرا,SUPPORTED,true,SYN-AR-SUPPORTED-2-الكوليرا
+SYN-AR-020,[SYNTHETIC] شرب الماء النظيف يقلل خطر الإصابة بـ التهاب الكبد,SUPPORTED,true,SYN-AR-SUPPORTED-2-التهاب الكبد
+SYN-AR-043,[SYNTHETIC] دراسة جديدة غير منشورة تشير إلى أن عشبة قد تؤثر في الإنفلونزا,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-0-الإنفلونزا
+SYN-AR-052,[SYNTHETIC] يقول بعض الناس إن مكملا غذائيا يغير أعراض الكوليرا,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-1-الكوليرا
+SYN-AR-048,[SYNTHETIC] دراسة جديدة غير منشورة تشير إلى أن عشبة قد تؤثر في التهاب الكبد,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-0-التهاب الكبد
+SYN-AR-011,[SYNTHETIC] توصي الجهات الصحية بجدول التطعيم ضد السكري,SUPPORTED,true,SYN-AR-SUPPORTED-1-السكري
+SYN-AR-054,[SYNTHETIC] يقول بعض الناس إن مكملا غذائيا يغير أعراض الملاريا,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-1-الملاريا
+SYN-AR-024,[SYNTHETIC] توابل سرية في المطبخ تعالج الكوليرا خلال ليلة واحدة,MISLEADING,true,SYN-AR-MISLEADING-0-الكوليرا
+SYN-AR-058,[SYNTHETIC] منشور غير موثق يزعم أن عيادة وجدت علاقة مع الحصبة,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-2-الحصبة
+SYN-AR-006,[SYNTHETIC] غسل اليدين بالماء والصابون يقلل انتشار التهاب الكبد,SUPPORTED,true,SYN-AR-SUPPORTED-0-التهاب الكبد
+SYN-AR-004,[SYNTHETIC] غسل اليدين بالماء والصابون يقلل انتشار السكري,SUPPORTED,true,SYN-AR-SUPPORTED-0-السكري
+SYN-AR-055,[SYNTHETIC] يقول بعض الناس إن مكملا غذائيا يغير أعراض التهاب الكبد,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-1-التهاب الكبد
+SYN-AR-061,[SYNTHETIC] منشور غير موثق يزعم أن عيادة وجدت علاقة مع الملاريا,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-2-الملاريا
+SYN-AR-056,[SYNTHETIC] يقول بعض الناس إن مكملا غذائيا يغير أعراض الربو,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-1-الربو
+SYN-AR-062,[SYNTHETIC] منشور غير موثق يزعم أن عيادة وجدت علاقة مع التهاب الكبد,NEEDS_REVIEW,true,SYN-AR-NEEDS_REVIEW-2-التهاب الكبد
