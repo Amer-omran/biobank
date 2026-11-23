@@ -28,6 +28,10 @@ LABEL_DESCRIPTIONS = {
     },
 }
 
+# Label schemes. "binary" trains SUPPORTED vs MISLEADING only; NEEDS_REVIEW is then produced at
+# inference time exclusively by calibrated abstention (low confidence -> human review).
+LABEL_SCHEMES: dict[str, list[int]] = {"three_class": [0, 1, 2], "binary": [0, 1]}
+
 LABEL_AR = {Label.SUPPORTED: "مدعوم", Label.MISLEADING: "مضلل", Label.NEEDS_REVIEW: "يحتاج مراجعة"}
 
 

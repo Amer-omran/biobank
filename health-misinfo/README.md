@@ -7,6 +7,12 @@
 
 [العربية ↓](#ar)
 
+## Simplest path (prototype) — see [`docs/DEMO_GUIDE.md`](docs/DEMO_GUIDE.md)
+
+1. **Run locally:** `./start.sh` (macOS/Linux) or `start.bat` (Windows) → http://localhost:3000
+2. **Train for free:** open `notebooks/train_and_deploy_colab.ipynb` in Google Colab (T4 GPU) and run all cells
+3. **Public link for free:** the last notebook cell deploys to a Hugging Face Space
+
 ## Current status (honest summary)
 
 | Component | Status |
@@ -179,6 +185,12 @@ Please cite the datasets as listed in the registry.
 تغريدات فقط بلا نص ولا ترخيص، ولم يكن تنزيل PUBHEALTH وأوزان Hugging Face ممكناً من بيئة البناء. وحتى يُدرَّب
 نموذج ويُقيَّم ويُسجَّل، تعرض المنصة حالة صريحة **«النموذج غير مدرَّب»** مع الاستمرار في عرض ادعاءات مشابهة تم
 التحقق منها وسير عمل المراجعة كاملاً.
+
+### الطريق الأبسط (نموذج تطبيقي) — راجع `docs/DEMO_GUIDE.md`
+
+1. **على جهازك:** `./start.sh` (ماك/لينكس) أو `start.bat` (ويندوز) ← http://localhost:3000
+2. **التدريب مجاناً:** افتح `notebooks/train_and_deploy_colab.ipynb` في Google Colab وشغّل الخلايا
+3. **رابط عام مجاني:** الخلية الأخيرة في الدفتر تنشر الموقع على Hugging Face Spaces
 
 ### التشغيل عبر Docker
 

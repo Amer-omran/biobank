@@ -102,6 +102,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main id="main" className="mx-auto w-full max-w-7xl flex-1 p-4 md:p-8">
           {children}
         </main>
+        <footer className="border-t border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 md:px-8">{t("attribution.arafacts")}</footer>
       </div>
     </div>
   );

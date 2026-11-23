@@ -166,7 +166,7 @@ function Settings() {
 
 function SplitBuilder() {
   const { t } = useLocale();
-  const [f, setF] = useState({ language: "ar", version: "v1", seed: 42, require_human_review: false });
+  const [f, setF] = useState({ language: "ar", version: "v1", seed: 42, require_human_review: false, label_scheme: "binary" });
   const [busy, setBusy] = useState(false);
   const [ok, setOk] = useState<Record<string, unknown> | null>(null);
   const [refused, setRefused] = useState<{ message: string; report: Record<string, unknown> } | null>(null);
@@ -175,7 +175,7 @@ function SplitBuilder() {
     <Card title={t("ad.splits")}>
       <p className="mb-3 text-sm text-slate-700">{t("ad.splitHelp")}</p>
       <form
-        className="grid gap-3 md:grid-cols-5 md:items-end"
+        className="grid gap-3 md:grid-cols-6 md:items-end"
         onSubmit={async (e) => {
           e.preventDefault();
           setBusy(true);
@@ -201,6 +201,12 @@ function SplitBuilder() {
         </Field>
         <Field label={t("ds.version")} htmlFor="sp-v">
           <input id="sp-v" required pattern="[A-Za-z0-9._\-]{1,64}" dir="ltr" className={inputCls} value={f.version} onChange={(e) => setF({ ...f, version: e.target.value })} />
+        </Field>
+        <Field label={t("ad.scheme")} htmlFor="sp-scheme">
+          <select id="sp-scheme" className={inputCls} value={f.label_scheme} onChange={(e) => setF({ ...f, label_scheme: e.target.value })}>
+            <option value="binary">{t("ad.scheme.binary")}</option>
+            <option value="three_class">{t("ad.scheme.three_class")}</option>
+          </select>
         </Field>
         <Field label={t("ad.seed")} htmlFor="sp-seed">
           <input id="sp-seed" type="number" className={inputCls} value={f.seed} onChange={(e) => setF({ ...f, seed: Number(e.target.value) })} />

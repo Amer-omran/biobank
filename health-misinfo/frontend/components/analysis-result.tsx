@@ -7,7 +7,7 @@ import { useLocale } from "@/components/providers";
 import { Badge, Button, Card, ErrorBox, LabelBadge, Notice, ReviewStatusBadge, Table, Td } from "@/components/ui";
 import { api } from "@/lib/api";
 import { formatDate, formatNumber } from "@/lib/i18n";
-import { type Analysis, LABELS } from "@/lib/types";
+import type { Analysis, LabelName } from "@/lib/types";
 
 export function AnalysisResult({ analysis, onChange }: { analysis: Analysis; onChange?: (a: Analysis) => void }) {
   const { t, td, locale } = useLocale();
@@ -93,10 +93,10 @@ export function AnalysisResult({ analysis, onChange }: { analysis: Analysis; onC
                   title={t("analyze.calibrated")}
                   max={1}
                   colorFor={(k) => LABEL_COLOR[k]}
-                  data={LABELS.map((l) => ({ key: l, label: t(`label.${l}`), value: p.calibrated_probabilities![l] }))}
+                  data={(Object.keys(p.calibrated_probabilities) as LabelName[]).map((l) => ({ key: l, label: t(`label.${l}`), value: p.calibrated_probabilities![l] }))}
                 />
               )}
-              <BarList title={t("analyze.raw")} max={1} colorFor={() => "bg-slate-400"} data={LABELS.map((l) => ({ key: l, label: t(`label.${l}`), value: p.raw_scores[l] }))} />
+              <BarList title={t("analyze.raw")} max={1} colorFor={() => "bg-slate-400"} data={(Object.keys(p.raw_scores) as LabelName[]).map((l) => ({ key: l, label: t(`label.${l}`), value: p.raw_scores[l] }))} />
             </div>
           </div>
         )}
@@ -121,6 +121,7 @@ export function AnalysisResult({ analysis, onChange }: { analysis: Analysis; onC
 
       <Card title={t("analyze.similar")}>
         <p className="mb-3 text-xs text-slate-600">{t("analyze.similarNote")}</p>
+        <p className="mb-3 text-xs text-slate-600">{t("attribution.arafacts")}</p>
         {a.similar_claims.length === 0 ? (
           <p className="text-sm text-slate-700">{t("analyze.similarNone")}</p>
         ) : (

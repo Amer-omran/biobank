@@ -10,6 +10,11 @@ Three-class classification of a single health claim (Arabic or English):
 | 1 | MISLEADING | Contradicted by reliable evidence or demonstrably misleading. |
 | 2 | NEEDS_REVIEW | Insufficient, conflicting, ambiguous, or unverified evidence. |
 
+**Label schemes.** `three_class` trains all three labels. `binary` (used for the prototype because
+NEEDS_REVIEW has only 3 eligible Arabic samples) trains SUPPORTED vs MISLEADING and produces NEEDS_REVIEW
+exclusively by calibrated abstention (§6); samples whose final label is NEEDS_REVIEW are excluded from a
+binary split and counted in its manifest (`excluded_by_label_scheme`).
+
 The classifier sees only the claim text. It is a **research prediction** model, not a fact-checker:
 it does not retrieve evidence, and a missing supporting source is never treated as evidence of falsity.
 

@@ -14,19 +14,21 @@ from pathlib import Path
 import numpy as np
 
 from healthmisinfo.data.split import CSV_COLUMNS, SPLITS, assign_and_verify
-from healthmisinfo.labels import LABEL_NAMES, Label
+from healthmisinfo.labels import LABEL_NAMES, LABEL_SCHEMES, Label
 from healthmisinfo.text.normalize import normalize_for_model
 from healthmisinfo.text.topics import tag_topic
 
 
-def make_synthetic_split(fixture_csv: Path, language: str, out_dir: Path, seed: int = 42) -> dict:
+def make_synthetic_split(fixture_csv: Path, language: str, out_dir: Path, seed: int = 42, label_scheme: str = "three_class") -> dict:
     with Path(fixture_csv).open(encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     if not rows or any(r.get("is_synthetic", "").lower() != "true" for r in rows):
         raise ValueError("make_synthetic_split only accepts fixtures where every row has is_synthetic=true")
+    classes = LABEL_SCHEMES[label_scheme]
+    rows = [r for r in rows if int(Label[r["label"]]) in classes]
     labels = np.array([int(Label[r["label"]]) for r in rows])
     groups = np.array([r.get("group_key") or r["id"] for r in rows])
-    assign, verification = assign_and_verify(labels, groups, seed)
+    assign, verification = assign_and_verify(labels, groups, seed, classes=classes)
     out_dir.mkdir(parents=True, exist_ok=True)
     files = {}
     for name, idxs in assign.items():
@@ -58,6 +60,7 @@ def make_synthetic_split(fixture_csv: Path, language: str, out_dir: Path, seed: 
         "language": language,
         "version": f"synthetic-{Path(fixture_csv).stem}-s{seed}",
         "seed": seed,
+        "label_scheme": label_scheme,
         "files": files,
         "data_sha256": hashlib.sha256("".join(files[k]["sha256"] for k in SPLITS).encode()).hexdigest(),
         **verification,

@@ -332,6 +332,7 @@ def make_split(body: SplitIn, db: Session = Depends(get_db), user: User = Depend
             seed=body.seed,
             require_human_review=body.require_human_review,
             near_dup_threshold=body.near_dup_threshold,
+            label_scheme=body.label_scheme,
             created_by_id=user.id,
         )
     except SplitError as e:

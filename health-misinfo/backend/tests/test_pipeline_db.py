@@ -189,3 +189,14 @@ def test_synthetic_never_eligible_or_split(db, tmp_path):
     assert ds.stats["eligible"] == 0 and ds.stats["exclusion_reasons"] == {"synthetic_fixture": 60}
     with pytest.raises(SplitError):
         build_splits(db, "en", version="s", out_root=tmp_path)
+
+
+def test_binary_scheme_drops_needs_review_and_splits_two_classes(db, tmp_path):
+    recs = [r for r in records(20) if r.original_label != "U"] + records(20)[-2:]  # only 2 NEEDS_REVIEW
+    import_records(db, result(recs), name="bin", version="1", mapper=MAPPER, license_confirmed_by_uploader=True)
+    with pytest.raises(SplitError):
+        build_splits(db, "en", version="three", out_root=tmp_path)  # 3-class impossible
+    rep = build_splits(db, "en", version="bin", out_root=tmp_path, label_scheme="binary").report
+    assert rep["status"] == "valid" and rep["label_scheme"] == "binary"
+    assert rep["excluded_by_label_scheme"] == 2
+    assert all(set(d) == {"SUPPORTED", "MISLEADING"} for d in rep["label_distribution"].values())

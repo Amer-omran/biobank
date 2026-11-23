@@ -19,18 +19,19 @@ from healthmisinfo.labels import LABEL_NAMES
 LABELS = [0, 1, 2]
 
 
-def classification_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> dict:
+def classification_metrics(y_true: Sequence[int], y_pred: Sequence[int], labels: Sequence[int] = LABELS) -> dict:
+    LABELS_ = list(labels)
     y_true = np.asarray(y_true, dtype=int)
     y_pred = np.asarray(y_pred, dtype=int)
-    p, r, f, s = precision_recall_fscore_support(y_true, y_pred, labels=LABELS, zero_division=0)
-    mp, mr, mf, _ = precision_recall_fscore_support(y_true, y_pred, labels=LABELS, average="macro", zero_division=0)
+    p, r, f, s = precision_recall_fscore_support(y_true, y_pred, labels=LABELS_, zero_division=0)
+    mp, mr, mf, _ = precision_recall_fscore_support(y_true, y_pred, labels=LABELS_, average="macro", zero_division=0)
     return {
         "n": int(len(y_true)),
         "accuracy": float(accuracy_score(y_true, y_pred)) if len(y_true) else 0.0,
         "macro_precision": float(mp),
         "macro_recall": float(mr),
         "macro_f1": float(mf),
-        "weighted_f1": float(f1_score(y_true, y_pred, labels=LABELS, average="weighted", zero_division=0)),
+        "weighted_f1": float(f1_score(y_true, y_pred, labels=LABELS_, average="weighted", zero_division=0)),
         "per_class": {
             LABEL_NAMES[c]: {
                 "precision": float(p[i]),
@@ -38,13 +39,13 @@ def classification_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> dict
                 "f1": float(f[i]),
                 "support": int(s[i]),
             }
-            for i, c in enumerate(LABELS)
+            for i, c in enumerate(LABELS_)
         },
         "confusion_matrix": {
-            "labels": LABEL_NAMES,
+            "labels": [LABEL_NAMES[c] for c in LABELS_],
             "rows_are": "true label",
             "columns_are": "predicted label",
-            "matrix": confusion_matrix(y_true, y_pred, labels=LABELS).tolist(),
+            "matrix": confusion_matrix(y_true, y_pred, labels=LABELS_).tolist(),
         },
         "true_distribution": {LABEL_NAMES[k]: int(v) for k, v in sorted(Counter(y_true.tolist()).items())},
         "predicted_distribution": {LABEL_NAMES[k]: int(v) for k, v in sorted(Counter(y_pred.tolist()).items())},
@@ -83,7 +84,7 @@ def negative_log_likelihood(probs: np.ndarray, y_true: Sequence[int]) -> float:
     return float(-np.mean(np.log(probs[np.arange(len(y_true)), y_true]))) if len(y_true) else 0.0
 
 
-def subgroup_metrics(y_true: Sequence[int], y_pred: Sequence[int], groups: Sequence[str], min_n: int = 1) -> dict:
+def subgroup_metrics(y_true: Sequence[int], y_pred: Sequence[int], groups: Sequence[str], min_n: int = 1, labels: Sequence[int] = LABELS) -> dict:
     y_true = np.asarray(y_true, dtype=int)
     y_pred = np.asarray(y_pred, dtype=int)
     groups = np.asarray([g or "(none)" for g in groups])
@@ -96,7 +97,7 @@ def subgroup_metrics(y_true: Sequence[int], y_pred: Sequence[int], groups: Seque
         out[g] = {
             "n": n,
             "accuracy": float(accuracy_score(y_true[m], y_pred[m])),
-            "macro_f1": float(f1_score(y_true[m], y_pred[m], labels=LABELS, average="macro", zero_division=0)),
+            "macro_f1": float(f1_score(y_true[m], y_pred[m], labels=list(labels), average="macro", zero_division=0)),
             "true_distribution": {LABEL_NAMES[k]: int(v) for k, v in sorted(Counter(y_true[m].tolist()).items())},
             "small_sample_warning": n < 30,
         }

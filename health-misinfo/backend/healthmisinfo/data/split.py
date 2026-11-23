@@ -27,7 +27,7 @@ from healthmisinfo.config import get_settings
 from healthmisinfo.data.dedup import DEFAULT_NEAR_DUP_THRESHOLD, GroupItem, compute_groups
 from healthmisinfo.data.pipeline import ELIGIBLE
 from healthmisinfo.db.models import Dataset, DatasetSample, SourceRegistry, SplitAssignment
-from healthmisinfo.labels import LABEL_NAMES, Label
+from healthmisinfo.labels import LABEL_NAMES, LABEL_SCHEMES
 from healthmisinfo.text.normalize import NORMALIZATION_VERSION
 
 SPLITS = ("train", "validation", "test")
@@ -79,7 +79,7 @@ class SplitVerificationError(ValueError):
         self.verification = verification
 
 
-def assign_and_verify(labels: np.ndarray, groups: np.ndarray, seed: int, test_frac: float = 0.15, val_frac: float = 0.15):
+def assign_and_verify(labels: np.ndarray, groups: np.ndarray, seed: int, test_frac: float = 0.15, val_frac: float = 0.15, classes=(0, 1, 2)):
     """Pure function: group-aware stratified assignment + verification. Raises SplitVerificationError."""
     idx = np.arange(len(labels))
     test_local = _kfold_pick(labels, groups, test_frac, seed)
@@ -92,7 +92,7 @@ def assign_and_verify(labels: np.ndarray, groups: np.ndarray, seed: int, test_fr
     verification = {
         "split_sizes": {k: int(len(v)) for k, v in assign.items()},
         "actual_ratios": {k: round(len(v) / len(labels), 4) for k, v in assign.items()},
-        "label_distribution": {k: {LABEL_NAMES[c]: int((labels[v] == c).sum()) for c in Label} for k, v in assign.items()},
+        "label_distribution": {k: {LABEL_NAMES[c]: int((labels[v] == c).sum()) for c in classes} for k, v in assign.items()},
         "group_overlap": len(overlap),
     }
     if overlap:
@@ -136,17 +136,22 @@ def build_splits(
     val_frac: float = 0.15,
     require_human_review: bool = False,
     near_dup_threshold: float = DEFAULT_NEAR_DUP_THRESHOLD,
+    label_scheme: str = "three_class",
     out_root: Path | None = None,
     created_by_id: int | None = None,
 ) -> SplitResult:
     if language not in ("ar", "en"):
         raise ValueError("language must be 'ar' or 'en'")
-    name = f"{language}-split"
+    name = f"{language}-split" if label_scheme == "three_class" else f"{language}-split-{label_scheme}"
     if db.scalar(select(Dataset).where(Dataset.name == name, Dataset.version == version)):
         raise ValueError(f"Split {name} {version} already exists")
 
     settings = get_settings()
-    samples = candidate_samples(db, language, dataset_ids, require_human_review)
+    if label_scheme not in LABEL_SCHEMES:
+        raise ValueError(f"label_scheme must be one of {sorted(LABEL_SCHEMES)}")
+    classes = LABEL_SCHEMES[label_scheme]
+    all_candidates = candidate_samples(db, language, dataset_ids, require_human_review)
+    samples = [s for s in all_candidates if s.final_label in classes]
     report: dict = {
         "language": language,
         "version": version,
@@ -155,6 +160,9 @@ def build_splits(
         "require_human_review": require_human_review,
         "near_dup_threshold": near_dup_threshold,
         "normalization_version": NORMALIZATION_VERSION,
+        "label_scheme": label_scheme,
+        "classes": [LABEL_NAMES[c] for c in classes],
+        "excluded_by_label_scheme": len(all_candidates) - len(samples),
         "candidate_count": len(samples),
         "target_per_language": settings.target_samples_per_language,
         "shortfall_vs_target": max(0, settings.target_samples_per_language - len(samples)),
@@ -187,9 +195,9 @@ def build_splits(
     groups_arr = np.array(groups)
 
     present = set(labels.tolist())
-    missing = [LABEL_NAMES[c] for c in Label if c not in present]
+    missing = [LABEL_NAMES[c] for c in classes if c not in present]
     if missing:
-        fail(f"Class(es) {missing} have no eligible samples; a 3-class split is impossible.")
+        fail(f"Class(es) {missing} have no eligible samples; a {len(classes)}-class split is impossible.")
     groups_per_class = {LABEL_NAMES[c]: len(set(groups_arr[labels == c])) for c in present}
     report["groups_per_class"] = groups_per_class
     too_small = [c for c, n in groups_per_class.items() if n < 3]
@@ -197,7 +205,7 @@ def build_splits(
         fail(f"Class(es) {too_small} have fewer than 3 independent groups; cannot place them in all three splits.")
 
     try:
-        assign, verification = assign_and_verify(labels, groups_arr, seed, test_frac, val_frac)
+        assign, verification = assign_and_verify(labels, groups_arr, seed, test_frac, val_frac, classes=classes)
     except SplitVerificationError as e:
         report.update(e.verification)
         fail(str(e))
@@ -247,7 +255,8 @@ def build_splits(
         file_sha256=report["data_sha256"],
         row_count=len(samples),
         imported_count=len(samples),
-        params={k: report[k] for k in ("seed", "requested_ratios", "require_human_review", "near_dup_threshold")} | {"dataset_ids": dataset_ids},
+        params={k: report[k] for k in ("seed", "requested_ratios", "require_human_review", "near_dup_threshold", "label_scheme")}
+        | {"dataset_ids": dataset_ids},
         stats=report,
         created_by_id=created_by_id,
     )

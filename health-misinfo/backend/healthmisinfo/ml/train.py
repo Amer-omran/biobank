@@ -33,7 +33,7 @@ from pathlib import Path
 
 import numpy as np
 
-from healthmisinfo.labels import LABEL_NAMES
+from healthmisinfo.labels import LABEL_NAMES, LABEL_SCHEMES
 from healthmisinfo.ml.calibration import calibration_report, fit_temperature, risk_coverage, select_abstention_threshold, softmax
 from healthmisinfo.ml.metrics import classification_metrics, expected_calibration_error, subgroup_metrics
 
@@ -121,7 +121,7 @@ def environment_info() -> dict:
 # --------------------------------------------------------------------------- models
 
 
-def build_tiny_random_model(texts: list[str], out_dir: Path):
+def build_tiny_random_model(texts: list[str], out_dir: Path, classes: list[int]):
     """Tiny random BERT + word-level vocab from the training texts. Pipeline smoke test ONLY."""
     from transformers import BertConfig, BertForSequenceClassification, BertTokenizerFast
 
@@ -138,22 +138,22 @@ def build_tiny_random_model(texts: list[str], out_dir: Path):
         num_attention_heads=2,
         intermediate_size=64,
         max_position_embeddings=256,
-        num_labels=3,
-        id2label=dict(enumerate(LABEL_NAMES)),
-        label2id={n: i for i, n in enumerate(LABEL_NAMES)},
+        num_labels=len(classes),
+        id2label={i: LABEL_NAMES[c] for i, c in enumerate(classes)},
+        label2id={LABEL_NAMES[c]: i for i, c in enumerate(classes)},
     )
     return tok, BertForSequenceClassification(cfg)
 
 
-def load_pretrained(base_model: str):
+def load_pretrained(base_model: str, classes: list[int]):
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
     tok = AutoTokenizer.from_pretrained(base_model)
     model = AutoModelForSequenceClassification.from_pretrained(
         base_model,
-        num_labels=3,
-        id2label=dict(enumerate(LABEL_NAMES)),
-        label2id={n: i for i, n in enumerate(LABEL_NAMES)},
+        num_labels=len(classes),
+        id2label={i: LABEL_NAMES[c] for i, c in enumerate(classes)},
+        label2id={LABEL_NAMES[c]: i for i, c in enumerate(classes)},
     )
     return tok, model
 
@@ -197,6 +197,8 @@ def train_and_evaluate(cfg: TrainConfig) -> dict:
     manifest, rows = load_split(split_dir, allow_synthetic=cfg.allow_synthetic)
     if manifest.get("language") != cfg.language:
         raise SplitIntegrityError(f"Split language {manifest.get('language')} != --language {cfg.language}")
+    label_scheme = manifest.get("label_scheme", "three_class")
+    classes = LABEL_SCHEMES[label_scheme]  # class ids are 0..k-1 in both schemes
     cfg.base_model = cfg.base_model or DEFAULT_BASE_MODELS[cfg.language]
     cfg.run_tag = cfg.run_tag or (
         f"{cfg.language}-{'smoke' if cfg.smoke_test_tiny_random else cfg.base_model.split('/')[-1]}-"
@@ -210,15 +212,15 @@ def train_and_evaluate(cfg: TrainConfig) -> dict:
     torch.set_num_threads(max(1, min(os.cpu_count() or 1, 8)))
 
     if cfg.smoke_test_tiny_random:
-        tokenizer, model = build_tiny_random_model([r["text"] for r in rows["train"]], run_dir)
+        tokenizer, model = build_tiny_random_model([r["text"] for r in rows["train"]], run_dir, classes)
     else:
-        tokenizer, model = load_pretrained(cfg.base_model)
+        tokenizer, model = load_pretrained(cfg.base_model, classes)
 
     ds = {k: _TextDataset(v, tokenizer, cfg.max_length) for k, v in rows.items()}
     train_counts = Counter(r["label"] for r in rows["train"])
     if cfg.class_weighting == "balanced":
-        n, k = len(rows["train"]), 3
-        weights = [n / (k * max(1, train_counts.get(c, 0))) for c in range(3)]
+        n, k = len(rows["train"]), len(classes)
+        weights = [n / (k * max(1, train_counts.get(c, 0))) for c in classes]
     else:
         weights = [1.0, 1.0, 1.0]
     class_weights = torch.tensor(weights, dtype=torch.float)
@@ -233,7 +235,7 @@ def train_and_evaluate(cfg: TrainConfig) -> dict:
     def compute_metrics(eval_pred):
         logits, labels = eval_pred
         logits = logits[0] if isinstance(logits, tuple) else logits
-        m = classification_metrics(labels, np.argmax(logits, axis=1))
+        m = classification_metrics(labels, np.argmax(logits, axis=1), classes)
         return {"macro_f1": m["macro_f1"], "accuracy": m["accuracy"]}
 
     import inspect
@@ -279,7 +281,7 @@ def train_and_evaluate(cfg: TrainConfig) -> dict:
     # ---- validation: model-selection metrics + calibration (validation only)
     y_val = np.array([r["label"] for r in rows["validation"]])
     val_logits = predict_logits(trainer, ds["validation"])
-    val_metrics = classification_metrics(y_val, val_logits.argmax(axis=1))
+    val_metrics = classification_metrics(y_val, val_logits.argmax(axis=1), classes)
     temperature = fit_temperature(val_logits, y_val)
     val_cal = calibration_report(val_logits, y_val, temperature)
     abstention = select_abstention_threshold(softmax(val_logits, temperature), y_val, cfg.target_selective_accuracy, cfg.min_coverage)
@@ -297,7 +299,7 @@ def train_and_evaluate(cfg: TrainConfig) -> dict:
     test_logits = predict_logits(trainer, ds["test"])
     test_pred = test_logits.argmax(axis=1)
     test_probs_cal = softmax(test_logits, temperature)
-    test_metrics = classification_metrics(y_test, test_pred)
+    test_metrics = classification_metrics(y_test, test_pred, classes)
     thr = abstention["threshold"]
     selective = risk_coverage(test_probs_cal, y_test, [thr])[0] if thr is not None else None
     evaluation = {
@@ -305,6 +307,7 @@ def train_and_evaluate(cfg: TrainConfig) -> dict:
         "language": cfg.language,
         "base_model": cfg.base_model,
         "smoke_test": cfg.smoke_test_tiny_random,
+        "label_scheme": label_scheme,
         "synthetic_data": bool(manifest.get("synthetic")),
         "split_version": manifest["version"],
         "split_data_sha256": manifest.get("data_sha256"),
@@ -318,18 +321,18 @@ def train_and_evaluate(cfg: TrainConfig) -> dict:
         },
         "test_selective": {"threshold": thr, **(selective or {})},
         "subgroups": {
-            "health_topic": subgroup_metrics(y_test, test_pred, [r["health_topic"] for r in rows["test"]]),
-            "source": subgroup_metrics(y_test, test_pred, [r["source_key"] for r in rows["test"]]),
+            "health_topic": subgroup_metrics(y_test, test_pred, [r["health_topic"] for r in rows["test"]], labels=classes),
+            "source": subgroup_metrics(y_test, test_pred, [r["source_key"] for r in rows["test"]], labels=classes),
         },
         "class_distribution": {k: {LABEL_NAMES[c]: int(v) for c, v in sorted(Counter(r["label"] for r in rows[k]).items())} for k in rows},
     }
     (run_dir / "evaluation.json").write_text(json.dumps(evaluation, indent=2, ensure_ascii=False), encoding="utf-8")
     with (run_dir / "predictions_test.csv").open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["sample_id", "label", "predicted", *[f"p_cal_{n}" for n in LABEL_NAMES]])
+        w.writerow(["sample_id", "label", "predicted", *[f"p_cal_{LABEL_NAMES[c]}" for c in classes]])
         for r, p, probs in zip(rows["test"], test_pred, test_probs_cal, strict=True):
             w.writerow([r["sample_id"], r["label"], int(p), *[round(float(x), 6) for x in probs]])
-    _plot_confusion(test_metrics["confusion_matrix"]["matrix"], run_dir / "confusion_matrix_test.png", cfg.run_tag)
+    _plot_confusion(test_metrics["confusion_matrix"]["matrix"], run_dir / "confusion_matrix_test.png", cfg.run_tag, test_metrics["confusion_matrix"]["labels"])
 
     run_config = {
         "config": asdict(cfg),
@@ -351,7 +354,7 @@ def train_and_evaluate(cfg: TrainConfig) -> dict:
     return {"run_dir": str(run_dir), "evaluation": evaluation, "calibration": calibration, "run_config": run_config}
 
 
-def _plot_confusion(matrix, path: Path, title: str) -> None:
+def _plot_confusion(matrix, path: Path, title: str, names: list[str]) -> None:
     try:
         import matplotlib
 
@@ -362,12 +365,12 @@ def _plot_confusion(matrix, path: Path, title: str) -> None:
     m = np.asarray(matrix)
     fig, ax = plt.subplots(figsize=(4.6, 4))
     ax.imshow(m, cmap="Blues")
-    ax.set_xticks(range(3), LABEL_NAMES, rotation=30, ha="right")
-    ax.set_yticks(range(3), LABEL_NAMES)
+    ax.set_xticks(range(len(names)), names, rotation=30, ha="right")
+    ax.set_yticks(range(len(names)), names)
     ax.set_xlabel("Predicted")
     ax.set_ylabel("True")
-    for i in range(3):
-        for j in range(3):
+    for i in range(len(names)):
+        for j in range(len(names)):
             ax.text(j, i, int(m[i, j]), ha="center", va="center", color="white" if m[i, j] > m.max() / 2 else "black")
     ax.set_title(f"Test confusion matrix\n{title}", fontsize=8)
     fig.tight_layout()

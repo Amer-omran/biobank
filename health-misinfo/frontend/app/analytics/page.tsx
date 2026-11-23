@@ -82,7 +82,7 @@ export default function AnalyticsPage() {
                 <div key={m.id} className="rounded-lg border border-slate-200 p-4">
                   <p className="mb-1 text-sm font-semibold">{t("an.confusion", { model: m.version_tag })}</p>
                   <p className="mb-3 text-xs text-slate-500">{t("an.rowsTrue")}</p>
-                  {m.confusion_matrix && <ConfusionMatrix matrix={m.confusion_matrix.matrix} labels={LABELS.map((l) => t(`label.${l}`))} />}
+                  {m.confusion_matrix && <ConfusionMatrix matrix={m.confusion_matrix.matrix} labels={m.confusion_matrix.labels.map((l) => td(`label.${l}`, l))} />}
                   {m.per_class && (
                     <div className="mt-4">
                       <Table head={["", t("an.precision"), t("an.recall"), t("an.f1"), t("an.support")]} caption={t("an.perClass")}>

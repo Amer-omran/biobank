@@ -308,6 +308,11 @@ const en = {
   "ad.entity": "Entity",
   "ad.actor": "Actor",
   "ad.seedRegistry": "Reload source registry",
+  "ad.scheme": "Label scheme",
+  "ad.scheme.binary": "2 classes (Supported / Misleading) + abstention → Needs review",
+  "ad.scheme.three_class": "3 classes",
+  "attribution.arafacts":
+    "Arabic fact-checked claims: AraFacts (Sheikh Ali et al., WANLP 2021), CC BY-NC 4.0 — non-commercial research use. Research predictions only; not medical advice.",
   "role.admin": "Administrator",
   "role.reviewer": "Expert reviewer",
   "role.researcher": "Researcher",
@@ -621,6 +626,11 @@ const ar: Dict = {
   "ad.entity": "الكيان",
   "ad.actor": "المنفّذ",
   "ad.seedRegistry": "إعادة تحميل سجل المصادر",
+  "ad.scheme": "مخطط التصنيف",
+  "ad.scheme.binary": "فئتان (مدعوم / مضلل) + الامتناع ← يحتاج مراجعة",
+  "ad.scheme.three_class": "ثلاث فئات",
+  "attribution.arafacts":
+    "الادعاءات العربية المتحقق منها: AraFacts (Sheikh Ali وآخرون، WANLP 2021)، بترخيص CC BY-NC 4.0 — للاستخدام البحثي غير التجاري. تنبؤات بحثية فقط وليست نصيحة طبية.",
   "role.admin": "مسؤول",
   "role.reviewer": "خبير مراجعة",
   "role.researcher": "باحث",

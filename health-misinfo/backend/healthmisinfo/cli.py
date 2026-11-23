@@ -200,6 +200,7 @@ def cmd_build_splits(a) -> int:
                 require_human_review=a.require_human_review,
                 dataset_ids=a.dataset_ids,
                 near_dup_threshold=a.near_dup_threshold,
+                label_scheme=a.label_scheme,
             )
         except SplitError as e:
             db.commit()
@@ -240,6 +241,66 @@ def cmd_activate_model(a) -> int:
     return 0
 
 
+def cmd_bootstrap(_a) -> int:
+    """Idempotent start-up for a hosted demo: migrate, seed registry, create the admin from
+    $HMD_ADMIN_EMAIL/$HMD_ADMIN_PASSWORD, import AraFacts (for similar-claim retrieval) if its raw file
+    is present, and register + activate valid trained runs found in the models directory.
+    Runs that are smoke tests, synthetic or incomplete are refused by the registry and reported."""
+    from healthmisinfo.data.adapters.arafacts import load_arafacts
+    from healthmisinfo.data.pipeline import import_records
+    from healthmisinfo.data.registry import LabelMapper
+    from healthmisinfo.db.models import Dataset, ModelVersion, User
+    from healthmisinfo.ml.registry import RegistrationError, activate_model, register_model
+    from healthmisinfo.users import UserError, create_user
+
+    cmd_init_db(_a)
+    s = get_settings()
+    with _session() as db:
+        email, pw = os.environ.get("HMD_ADMIN_EMAIL"), os.environ.get("HMD_ADMIN_PASSWORD")
+        if email and pw and db.scalar(select(User.id).where(User.email == email.strip().lower())) is None:
+            try:
+                create_user(db, email, os.environ.get("HMD_ADMIN_NAME", "Administrator"), pw, "admin")
+                db.commit()
+                print(f"bootstrap: admin {email} created")
+            except UserError as e:
+                print(f"bootstrap: admin NOT created: {e}", file=sys.stderr)
+
+        raw = s.data_dir / "raw" / "arafacts" / "Dataset" / "AraFacts 2" / "AraFacts 2.csv"
+        if raw.exists() and db.scalar(select(Dataset.id).where(Dataset.name == "arafacts-health")) is None:
+            ds = import_records(
+                db,
+                load_arafacts(raw),
+                name="arafacts-health",
+                version="v2-2024-06-23",
+                mapper=LabelMapper.load("arafacts"),
+                params={"adapter": "arafacts", "mapping_origin": "registry", "via": "bootstrap"},
+            )
+            db.commit()
+            print(f"bootstrap: imported AraFacts health subset ({ds.imported_count} claims, {ds.stats['eligible']} eligible)")
+
+        known = set(db.scalars(select(ModelVersion.checkpoint_path)))
+        newest: dict[str, ModelVersion] = {}
+        for ev in sorted(s.models_dir.glob("*/*/evaluation.json")):
+            run_dir = ev.parent
+            if str((run_dir / "checkpoint").resolve()) in known:
+                continue
+            try:
+                mv = register_model(db, run_dir)
+                db.commit()
+                print(f"bootstrap: registered {mv.version_tag}")
+            except RegistrationError as e:
+                db.rollback()
+                print(f"bootstrap: skipped {run_dir.name}: {e}")
+        for mv in db.scalars(select(ModelVersion).order_by(ModelVersion.created_at)):
+            newest[mv.language] = mv
+        for mv in newest.values():
+            if mv.status != "active" and not db.scalar(select(ModelVersion.id).where(ModelVersion.language == mv.language, ModelVersion.status == "active")):
+                activate_model(db, mv)
+                db.commit()
+                print(f"bootstrap: activated {mv.version_tag}")
+    return 0
+
+
 def cmd_status(_a) -> int:
     from healthmisinfo.db.models import Dataset
     from healthmisinfo.inference.service import SLOTS, inference_service
@@ -271,6 +332,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("init-db").set_defaults(func=cmd_init_db)
     sub.add_parser("seed-registry").set_defaults(func=cmd_seed_registry)
     sub.add_parser("status").set_defaults(func=cmd_status)
+    sub.add_parser("bootstrap", help="idempotent start-up for hosted demos").set_defaults(func=cmd_bootstrap)
 
     p = sub.add_parser("create-user", help="password from $HMD_NEW_USER_PASSWORD or interactive prompt")
     p.add_argument("--email", required=True)
@@ -333,6 +395,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--dataset-ids", type=int, nargs="*")
     p.add_argument("--require-human-review", action="store_true")
     p.add_argument("--near-dup-threshold", type=float, default=0.85)
+    p.add_argument("--label-scheme", choices=["three_class", "binary"], default="three_class")
     p.set_defaults(func=cmd_build_splits)
 
     p = sub.add_parser("train", help="forwards to python -m healthmisinfo.ml.train", add_help=False)

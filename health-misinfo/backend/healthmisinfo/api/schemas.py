@@ -163,6 +163,7 @@ class SplitIn(BaseModel):
     seed: int = 42
     require_human_review: bool = False
     near_dup_threshold: float = Field(0.85, ge=0.5, le=1.0)
+    label_scheme: Literal["three_class", "binary"] = "three_class"
 
 
 class QueueReviewIn(BaseModel):

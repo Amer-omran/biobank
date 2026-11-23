@@ -57,7 +57,7 @@ def risk_coverage(probs: np.ndarray, y_true: Sequence[int], thresholds: Sequence
         cov = float(keep.mean()) if len(y) else 0.0
         if keep.any():
             acc = float((pred[keep] == y[keep]).mean())
-            mf1 = float(f1_score(y[keep], pred[keep], labels=[0, 1, 2], average="macro", zero_division=0))
+            mf1 = float(f1_score(y[keep], pred[keep], labels=list(range(probs.shape[1])), average="macro", zero_division=0))
         else:
             acc, mf1 = None, None
         rows.append({"threshold": round(float(t), 4), "coverage": cov, "selective_accuracy": acc, "selective_macro_f1": mf1})
@@ -73,7 +73,8 @@ def select_abstention_threshold(
     """Smallest threshold whose validation selective accuracy reaches the target while keeping at
     least ``min_coverage``. If no threshold qualifies, choose the one with the best selective
     accuracy subject to coverage and report ``target_met = False`` (no silent success)."""
-    grid = np.round(np.arange(0.34, 0.995, 0.01), 2)
+    k = np.asarray(probs_val).shape[1]
+    grid = np.round(np.arange(np.ceil(100 / k) / 100, 0.995, 0.01), 2)  # from just above chance (1/k)
     curve = risk_coverage(probs_val, y_val, grid)
     feasible = [r for r in curve if r["coverage"] >= min_coverage and r["selective_accuracy"] is not None]
     chosen = None

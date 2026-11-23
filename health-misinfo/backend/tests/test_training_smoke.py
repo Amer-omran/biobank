@@ -117,3 +117,50 @@ def test_inference_code_path_with_smoke_checkpoint(smoke_run, client, auth, db):
     assert body["explanation"]["method"] == "leave_one_word_out" and body["explanation"]["tokens"]
     status = inference_service.slot_status(db, "en")
     assert status["state"] == "ready"
+
+
+def test_binary_scheme_trains_two_class_model(tmp_path):
+    make_synthetic_split(FIXTURES / "synthetic_claims_ar.csv", "ar", tmp_path / "split", seed=3, label_scheme="binary")
+    out = train_and_evaluate(
+        TrainConfig(
+            language="ar",
+            split_dir=str(tmp_path / "split"),
+            output_root=str(tmp_path / "m"),
+            seed=3,
+            epochs=1,
+            batch_size=8,
+            learning_rate=5e-3,
+            max_length=32,
+            smoke_test_tiny_random=True,
+            allow_synthetic=True,
+            run_tag="ar-binary-smoke",
+        )
+    )
+    ev = out["evaluation"]
+    assert ev["label_scheme"] == "binary"
+    assert ev["test"]["confusion_matrix"]["labels"] == ["SUPPORTED", "MISLEADING"]
+    assert set(ev["test"]["per_class"]) == {"SUPPORTED", "MISLEADING"}
+    assert out["calibration"]["abstention"]["curve"][0]["threshold"] == 0.5
+
+
+def test_bootstrap_registers_nothing_from_smoke_runs(smoke_run, engine, monkeypatch, capsys):
+    from healthmisinfo import cli
+    from healthmisinfo.config import get_settings
+
+    root, out = smoke_run
+    monkeypatch.setattr(get_settings(), "models_dir", root / "models")
+    monkeypatch.setattr(cli, "cmd_init_db", lambda _a: 0)
+    monkeypatch.setenv("HMD_ADMIN_EMAIL", "boot@research-uni.org")
+    monkeypatch.setenv("HMD_ADMIN_PASSWORD", "Boot-Passw0rd!")
+    assert cli.cmd_bootstrap(None) == 0
+    text = capsys.readouterr().out
+    assert "admin boot@research-uni.org created" in text
+    assert "skipped en-smoke-test" in text and "smoke-test" in text
+    from sqlalchemy import select
+
+    from healthmisinfo.db.models import ModelVersion
+    from healthmisinfo.db.session import SessionLocal
+
+    with SessionLocal() as db:
+        assert db.scalars(select(ModelVersion)).all() == []
+    assert cli.cmd_bootstrap(None) == 0  # idempotent

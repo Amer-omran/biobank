@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from healthmisinfo.labels import LABEL_NAMES
-
 
 def _pct(x) -> str:
     return "n/a" if x is None else f"{100 * float(x):.2f}%"
@@ -28,7 +26,8 @@ def write_model_card(run_dir: Path, run_config: dict, evaluation: dict, calibrat
         f"# Model card — {cfg['run_tag']}",
         "",
         "## Model details",
-        f"- Task: 3-class health-claim classification ({', '.join(LABEL_NAMES)})",
+        f"- Task: health-claim classification, scheme `{evaluation.get('label_scheme', 'three_class')}` ({', '.join(t['confusion_matrix']['labels'])})"
+        + (" — NEEDS_REVIEW is produced only by calibrated abstention" if evaluation.get("label_scheme") == "binary" else ""),
         f"- Language: `{cfg['language']}`",
         f"- Base model: `{cfg['base_model']}`" + (" (NOT used: tiny random init)" if smoke else ""),
         f"- Seed: {cfg['seed']}; epochs ≤ {cfg['epochs']}; lr {cfg['learning_rate']}; batch {cfg['batch_size']}; "
@@ -73,10 +72,10 @@ def write_model_card(run_dir: Path, run_config: dict, evaluation: dict, calibrat
         "",
         "Confusion matrix (test; rows = true, columns = predicted):",
         "",
-        "| | " + " | ".join(LABEL_NAMES) + " |",
-        "| --- | --- | --- | --- |",
+        "| | " + " | ".join(t["confusion_matrix"]["labels"]) + " |",
+        "| --- " * (len(t["confusion_matrix"]["labels"]) + 1) + "|",
     ]
-    for i, name in enumerate(LABEL_NAMES):
+    for i, name in enumerate(t["confusion_matrix"]["labels"]):
         lines.append(f"| **{name}** | " + " | ".join(str(x) for x in cm[i]) + " |")
     ab = calibration["abstention"]
     tc = evaluation["test_calibration"]
