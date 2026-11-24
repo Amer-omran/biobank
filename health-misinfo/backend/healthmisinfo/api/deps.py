@@ -41,6 +41,34 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     return user
 
 
+class Guest:
+    """Anonymous visitor in public mode. Never persisted; owns no records."""
+
+    id = None
+    role = "guest"
+    reviewer_code = "guest"
+    is_guest = True
+
+
+GUEST = Guest()
+
+
+def is_guest(user) -> bool:
+    return getattr(user, "is_guest", False)
+
+
+def get_viewer(request: Request, db: Session = Depends(get_db)) -> User | Guest:
+    """Signed-in user if a valid session is present; otherwise a Guest when public mode is on."""
+    token, _ = _token_from_request(request)
+    if token or not get_settings().public_mode:
+        try:
+            return get_current_user(request, db)
+        except HTTPException as e:
+            if not get_settings().public_mode or e.status_code == status.HTTP_403_FORBIDDEN:
+                raise
+    return GUEST
+
+
 def require_roles(*roles: str) -> Callable[..., User]:
     def dep(user: User = Depends(get_current_user)) -> User:
         if user.role not in roles:

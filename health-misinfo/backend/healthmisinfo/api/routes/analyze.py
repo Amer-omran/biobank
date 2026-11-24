@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from healthmisinfo import DISCLAIMER_AR, DISCLAIMER_EN
-from healthmisinfo.api.deps import app_setting, get_current_user
+from healthmisinfo.api.deps import app_setting, get_current_user, get_viewer, is_guest
 from healthmisinfo.api.schemas import AnalysisOut, AnalysisSummary, AnalyzeIn, LanguageInfo, PredictionOut, label_name
 from healthmisinfo.audit import audit
 from healthmisinfo.config import get_settings
@@ -92,9 +92,9 @@ def analysis_out(a: Analysis, include_reviews: bool = False, db: Session | None 
 
 
 @router.post("/analyze", response_model=AnalysisOut, summary="Analyse a health claim (research prediction)")
-def analyze(body: AnalyzeIn, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def analyze(body: AnalyzeIn, request: Request, db: Session = Depends(get_db), user: User = Depends(get_viewer)):
     s = get_settings()
-    enforce(request, "analyze", s.rate_limit_analyze, s.rate_limit_window_seconds, identity=f"user:{user.id}")
+    enforce(request, "analyze", s.rate_limit_analyze, s.rate_limit_window_seconds, identity=None if is_guest(user) else f"user:{user.id}")
     text = body.text.strip()
     if len(text) < s.min_text_chars:
         raise HTTPException(422, f"Text must be at least {s.min_text_chars} characters")
@@ -198,8 +198,10 @@ def history(
     status: str | None = Query(None, max_length=32),
     review_status: str | None = Query(None, max_length=20),
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_viewer),
 ):
+    if is_guest(user):  # anonymous visitors never see anyone's history (including other guests')
+        return {"items": [], "total": 0, "page": page, "page_size": page_size}
     q = _visible(select(Analysis), user)
     if language:
         q = q.where(Analysis.language_used == language)

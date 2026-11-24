@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     store_analysis_text: bool = True
     audit_ip_salt: str = Field("", description="Salt for hashing client IPs in audit logs.")
 
+    # Public mode: anonymous visitors may view the dashboard, analyze claims, browse datasets,
+    # analytics and public reports. Reviews, imports and administration always require sign-in.
+    public_mode: bool = False
+
     # Review workflow
     reviews_required: int = 2
 

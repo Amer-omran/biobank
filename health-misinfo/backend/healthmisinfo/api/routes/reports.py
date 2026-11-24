@@ -10,7 +10,7 @@ from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from healthmisinfo.api.deps import get_current_user
+from healthmisinfo.api.deps import get_viewer, is_guest
 from healthmisinfo.api.routes.analytics import reviewer_agreement
 from healthmisinfo.db.models import Analysis, AuditLog, Dataset, DatasetSample, ExpertReview, ModelVersion, SourceRegistry, User
 from healthmisinfo.db.session import get_db
@@ -29,6 +29,8 @@ REPORT_TYPES = {
     "sources": {"formats": ["csv"], "description": "Provenance & license registry"},
     "audit": {"formats": ["csv"], "description": "Audit log (admin only)"},
 }
+
+PUBLIC_REPORT_TYPES = {"summary", "sources", "evaluation"}  # aggregate / non-personal only
 
 ILLUSTRATIVE = [
     ("SUPPORTED", "Washing hands with soap reduces the spread of many infections."),
@@ -53,11 +55,11 @@ def reports(
     model_id: int | None = None,
     limit: int = Query(5000, ge=1, le=100000),
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_viewer),
 ):
     if type is None:
         return {
-            "types": REPORT_TYPES,
+            "types": {k: v for k, v in REPORT_TYPES.items() if not is_guest(user) or k in PUBLIC_REPORT_TYPES},
             "models": [{"id": m.id, "version_tag": m.version_tag, "language": m.language} for m in db.scalars(select(ModelVersion))],
             "datasets": [
                 {"id": d.id, "name": d.name, "version": d.version, "kind": d.kind, "is_synthetic": d.is_synthetic} for d in db.scalars(select(Dataset))
@@ -65,6 +67,8 @@ def reports(
         }
     if format not in REPORT_TYPES[type]["formats"]:
         raise HTTPException(422, f"Format {format} not available for {type}")
+    if is_guest(user) and type not in PUBLIC_REPORT_TYPES:
+        raise HTTPException(401, "Sign in to download this report")
     if type == "audit" and user.role != "admin":
         raise HTTPException(403, "Audit export requires admin")
     return _RENDERERS[type](db, user, format, dataset_id=dataset_id, model_id=model_id, limit=limit)

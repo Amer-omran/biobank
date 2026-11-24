@@ -268,3 +268,40 @@ def test_rate_limit(client, auth, monkeypatch):
     limiter.reset()
     codes = [client.post("/api/v1/analyze", json={"text": "Garlic cures influenza fast"}, headers=auth["res"]).status_code for _ in range(3)]
     assert codes == [200, 200, 429]
+
+
+def test_public_mode_guest_access(client, users, monkeypatch):
+    from healthmisinfo.config import get_settings
+
+    assert client.get("/api/v1/auth/public-config").json() == {"public_mode": False}
+    assert client.post("/api/v1/analyze", json={"text": "Garlic cures influenza in one day"}).status_code == 401
+    monkeypatch.setattr(get_settings(), "public_mode", True)
+    assert client.get("/api/v1/auth/public-config").json() == {"public_mode": True}
+    # guests can use the public pages
+    assert client.get("/api/v1/models").status_code == 200
+    assert client.get("/api/v1/analytics").status_code == 200
+    assert client.get("/api/v1/datasets").status_code == 200
+    assert client.get("/api/v1/sources").status_code == 200
+    r = client.post("/api/v1/analyze", json={"text": "Garlic cures influenza in one day"})
+    assert r.status_code == 200 and r.json()["status"] == "model_not_trained"
+    a_id = r.json()["id"]
+    # ...but never see history (their own or other people's)
+    assert client.get("/api/v1/history").json() == {"items": [], "total": 0, "page": 1, "page_size": 20}
+    assert client.get(f"/api/v1/history/{a_id}").status_code == 401
+    assert client.post(f"/api/v1/history/{a_id}/request-review").status_code == 401
+    # ...and cannot review, import, split or administer
+    assert client.get("/api/v1/reviews/pending").status_code == 401
+    assert client.post("/api/v1/reviews", json={"target_type": "analysis", "target_id": a_id, "label": "MISLEADING"}).status_code == 401
+    assert client.post("/api/v1/datasets/splits", json={"language": "ar", "version": "x"}).status_code == 401
+    assert client.get("/api/v1/admin/users").status_code == 401
+    assert client.get("/api/v1/auth/me").status_code == 401
+    # reports: only aggregate / non-personal ones
+    assert set(client.get("/api/v1/reports").json()["types"]) == {"summary", "sources", "evaluation"}
+    assert client.get("/api/v1/reports?type=summary&format=pdf").status_code == 200
+    assert client.get("/api/v1/reports?type=analyses&format=csv").status_code == 401
+    # signed-in users keep full access in public mode
+    from .conftest import bearer
+
+    h = bearer(client, "admin@test.local")
+    assert client.get("/api/v1/history", headers=h).json()["total"] == 1
+    assert client.get("/api/v1/admin/users", headers=h).status_code == 200

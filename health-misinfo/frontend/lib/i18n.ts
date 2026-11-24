@@ -21,6 +21,7 @@ const en = {
   "nav.admin": "Administration",
   "nav.menu": "Menu",
   "nav.logout": "Sign out",
+  "nav.login": "Staff sign in",
 
   "common.loading": "Loading…",
   "common.error": "Something went wrong",
@@ -339,6 +340,7 @@ const ar: Dict = {
   "nav.admin": "الإدارة",
   "nav.menu": "القائمة",
   "nav.logout": "تسجيل الخروج",
+  "nav.login": "دخول الفريق",
 
   "common.loading": "جارٍ التحميل…",
   "common.error": "حدث خطأ",

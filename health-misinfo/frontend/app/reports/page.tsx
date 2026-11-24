@@ -24,7 +24,8 @@ export default function ReportsPage() {
   if (loading) return <Loading />;
   if (error || !data) return <ErrorBox error={error} onRetry={reload} />;
 
-  const row = (type: string, label: DictKey, extra?: Record<string, string>, disabled = false) => (
+  const row = (type: string, label: DictKey, extra?: Record<string, string>, disabled = false) =>
+    data.types[type] && (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 py-3 last:border-0">
       <span className="font-medium text-navy-900">{t(label)}</span>
       <div className="flex gap-2">
@@ -54,7 +55,7 @@ export default function ReportsPage() {
         {row("sources", "rp.sources")}
         {hasRole("admin") && row("audit", "rp.audit")}
       </Card>
-      <Card title={t("rp.dataset")}>
+      {data.types.dataset && <Card title={t("rp.dataset")}>
         <Field label={t("rp.chooseDataset")} htmlFor="rp-ds">
           <select id="rp-ds" className={inputCls} value={datasetId} onChange={(e) => setDatasetId(e.target.value)}>
             <option value="">—</option>
@@ -67,7 +68,7 @@ export default function ReportsPage() {
           </select>
         </Field>
         {row("dataset", "rp.dataset", { dataset_id: datasetId }, !datasetId)}
-      </Card>
+      </Card>}
       <Card title={t("rp.evaluation")}>
         {data.models.length === 0 ? (
           <Notice tone="warn">{t("rp.noModels")}</Notice>

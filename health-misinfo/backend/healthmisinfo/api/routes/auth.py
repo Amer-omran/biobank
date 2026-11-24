@@ -52,6 +52,11 @@ def logout(response: Response):
     return {"ok": True}
 
 
+@router.get("/public-config", summary="Whether anonymous visitors may use the public pages")
+def public_config():
+    return {"public_mode": get_settings().public_mode}
+
+
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)):
     return user

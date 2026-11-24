@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { BarList, LABEL_COLOR } from "@/components/charts";
-import { useLocale } from "@/components/providers";
+import { useAuth, useLocale } from "@/components/providers";
 import { Badge, Button, Card, ErrorBox, LabelBadge, Notice, ReviewStatusBadge, Table, Td } from "@/components/ui";
 import { api } from "@/lib/api";
 import { formatDate, formatNumber } from "@/lib/i18n";
@@ -11,6 +11,7 @@ import type { Analysis, LabelName } from "@/lib/types";
 
 export function AnalysisResult({ analysis, onChange }: { analysis: Analysis; onChange?: (a: Analysis) => void }) {
   const { t, td, locale } = useLocale();
+  const { user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
   const a = analysis;
@@ -169,12 +170,12 @@ export function AnalysisResult({ analysis, onChange }: { analysis: Analysis; onC
                 {t("history.final")}: <LabelBadge label={a.final_label_name} />
               </span>
             )}
-            {a.review_status === "not_required" ? (
+            {a.review_status === "not_required" && user ? (
               <Button variant="secondary" busy={busy} onClick={requestReview}>
                 {t("analyze.requestReview")}
               </Button>
             ) : (
-              a.review_status === "pending" && <span className="text-sm text-slate-600">{t("analyze.reviewRequested")}</span>
+              a.review_status === "pending" && user && <span className="text-sm text-slate-600">{t("analyze.reviewRequested")}</span>
             )}
           </div>
           {err !== null && (

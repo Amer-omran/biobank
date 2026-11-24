@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from healthmisinfo.api.deps import get_current_user, require_admin
+from healthmisinfo.api.deps import get_viewer, require_admin
 from healthmisinfo.db.models import ModelVersion, TrainingRun, User
 from healthmisinfo.db.session import get_db
 from healthmisinfo.inference.service import SLOTS, inference_service, runtime_available
@@ -33,7 +33,7 @@ def _mv_dict(mv: ModelVersion) -> dict:
 
 
 @router.get("/models", summary="Model slots, their state (ready / not_trained / ...) and registered versions")
-def list_models(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def list_models(db: Session = Depends(get_db), _: User = Depends(get_viewer)):
     versions = db.scalars(select(ModelVersion).order_by(ModelVersion.created_at.desc())).all()
     return {
         "runtime_available": runtime_available(),
@@ -45,7 +45,7 @@ def list_models(db: Session = Depends(get_db), _: User = Depends(get_current_use
 
 
 @router.get("/models/{model_id}", summary="Full metrics of a registered model version")
-def get_model(model_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def get_model(model_id: int, db: Session = Depends(get_db), _: User = Depends(get_viewer)):
     mv = db.get(ModelVersion, model_id)
     if mv is None:
         raise HTTPException(404, "Model version not found")

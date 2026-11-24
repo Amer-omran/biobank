@@ -1,5 +1,11 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const auth = vi.hoisted(() => ({ user: null as null | { id: number; role: string } }));
+vi.mock("@/components/providers", async (orig) => ({
+  ...(await orig<typeof import("@/components/providers")>()),
+  useAuth: () => ({ user: auth.user, loading: false, publicMode: true, hasRole: () => false, refresh: async () => {}, logout: async () => {} }),
+}));
 
 import { AnalysisResult } from "@/components/analysis-result";
 import { LocaleProvider } from "@/components/providers";
@@ -29,6 +35,19 @@ const base: Analysis = {
 const wrap = (ui: React.ReactNode, locale: "ar" | "en" = "en") => render(<LocaleProvider initial={locale}>{ui}</LocaleProvider>);
 
 describe("AnalysisResult", () => {
+  beforeEach(() => {
+    auth.user = null;
+  });
+
+  it("hides 'request expert review' from anonymous visitors and shows it to signed-in users", () => {
+    const { unmount } = wrap(<AnalysisResult analysis={base} />);
+    expect(screen.queryByText("Request expert review")).not.toBeInTheDocument();
+    unmount();
+    auth.user = { id: 1, role: "researcher" };
+    wrap(<AnalysisResult analysis={base} />);
+    expect(screen.getByText("Request expert review")).toBeInTheDocument();
+  });
+
   it("shows an explicit no-prediction state when the model is not trained", () => {
     wrap(<AnalysisResult analysis={base} />);
     expect(screen.getAllByText("Model not trained").length).toBeGreaterThan(0);

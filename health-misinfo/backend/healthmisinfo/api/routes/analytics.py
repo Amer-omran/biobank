@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from healthmisinfo.api.deps import get_current_user
+from healthmisinfo.api.deps import get_viewer
 from healthmisinfo.db.models import Analysis, Dataset, DatasetSample, ExpertReview, ModelVersion, SourceRegistry, User
 from healthmisinfo.db.session import get_db
 from healthmisinfo.labels import LABEL_NAMES
@@ -51,7 +51,7 @@ def reviewer_agreement(db: Session) -> dict:
 
 
 @router.get("/analytics", summary="Research analytics: dataset distribution, model metrics, analyses, reviews")
-def analytics(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def analytics(db: Session = Depends(get_db), _: User = Depends(get_viewer)):
     real = (Dataset.kind == "import") & (Dataset.is_synthetic.is_(False))
 
     def grouped(col, *extra):

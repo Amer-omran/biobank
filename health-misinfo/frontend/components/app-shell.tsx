@@ -9,10 +9,11 @@ import { Loading, cx } from "@/components/ui";
 import type { DictKey } from "@/lib/i18n";
 import type { Role } from "@/lib/types";
 
-const NAV: { href: string; key: DictKey; roles?: Role[] }[] = [
+// `roles` = signed-in roles allowed; `signedIn` = hidden from anonymous visitors in public mode.
+const NAV: { href: string; key: DictKey; roles?: Role[]; signedIn?: boolean }[] = [
   { href: "/", key: "nav.dashboard" },
   { href: "/analyze", key: "nav.analyze" },
-  { href: "/history", key: "nav.history" },
+  { href: "/history", key: "nav.history", signedIn: true },
   { href: "/datasets", key: "nav.datasets" },
   { href: "/reviews", key: "nav.reviews", roles: ["admin", "reviewer"] },
   { href: "/analytics", key: "nav.analytics" },
@@ -37,14 +38,14 @@ export function LanguageSwitcher({ className }: { className?: string }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { t, td } = useLocale();
-  const { user, loading, logout, hasRole } = useAuth();
+  const { user, loading, logout, hasRole, publicMode } = useAuth();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   if (pathname === "/login") return <>{children}</>;
-  if (loading || !user) return <Loading />;
+  if (loading || (!user && !publicMode)) return <Loading />;
 
-  const items = NAV.filter((n) => !n.roles || hasRole(...n.roles));
+  const items = NAV.filter((n) => (n.roles ? hasRole(...n.roles) : !n.signedIn || !!user));
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
   return (
@@ -76,12 +77,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </ul>
         </nav>
-        <div className="border-t border-navy-800 px-5 py-4 text-xs text-navy-100">
-          <p className="font-medium text-white">{user.display_name}</p>
-          <p>
-            {td(`role.${user.role}`, user.role)} · {user.reviewer_code}
-          </p>
-        </div>
+        {user && (
+          <div className="border-t border-navy-800 px-5 py-4 text-xs text-navy-100">
+            <p className="font-medium text-white">{user.display_name}</p>
+            <p>
+              {td(`role.${user.role}`, user.role)} · {user.reviewer_code}
+            </p>
+          </div>
+        )}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -94,9 +97,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex items-center gap-2">
             <LanguageSwitcher className="md:border-navy-800 md:hover:bg-navy-50" />
-            <button type="button" onClick={() => void logout()} className="min-h-10 rounded-lg px-3 text-sm hover:bg-white/10 md:hover:bg-navy-50">
-              {t("nav.logout")}
-            </button>
+            {user ? (
+              <button type="button" onClick={() => void logout()} className="min-h-10 rounded-lg px-3 text-sm hover:bg-white/10 md:hover:bg-navy-50">
+                {t("nav.logout")}
+              </button>
+            ) : (
+              <Link href="/login" className="inline-flex min-h-10 items-center rounded-lg px-3 text-sm hover:bg-white/10 md:hover:bg-navy-50">
+                {t("nav.login")}
+              </Link>
+            )}
           </div>
         </header>
         <main id="main" className="mx-auto w-full max-w-7xl flex-1 p-4 md:p-8">

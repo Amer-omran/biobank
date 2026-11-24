@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from healthmisinfo.api.deps import get_current_user, require_admin, require_researcher
+from healthmisinfo.api.deps import get_viewer, require_admin, require_researcher
 from healthmisinfo.api.schemas import QueueReviewIn, SourceUpdate, SplitIn, label_name
 from healthmisinfo.audit import audit
 from healthmisinfo.config import get_settings
@@ -68,7 +68,7 @@ def list_datasets(
     kind: str | None = Query(None, pattern="^(import|split|curated)$"),
     include_synthetic: bool = True,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(get_viewer),
 ):
     q = select(Dataset, SourceRegistry).join(SourceRegistry, SourceRegistry.id == Dataset.source_id, isouter=True)
     if kind:
@@ -97,7 +97,7 @@ def list_datasets(
 
 
 @router.get("/datasets/{dataset_id}")
-def get_dataset(dataset_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def get_dataset(dataset_id: int, db: Session = Depends(get_db), _: User = Depends(get_viewer)):
     ds = db.get(Dataset, dataset_id)
     if ds is None:
         raise HTTPException(404, "Dataset not found")
@@ -115,7 +115,7 @@ def list_samples(
     review_status: str | None = Query(None, max_length=20),
     q: str | None = Query(None, max_length=200),
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(get_viewer),
 ):
     query = select(DatasetSample).where(DatasetSample.dataset_id == dataset_id)
     if eligibility:
@@ -383,12 +383,12 @@ def _source_dict(s: SourceRegistry) -> dict:
 
 
 @router.get("/sources", summary="Dataset provenance & license registry")
-def list_sources(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def list_sources(db: Session = Depends(get_db), _: User = Depends(get_viewer)):
     return {"items": [_source_dict(s) for s in db.scalars(select(SourceRegistry).order_by(SourceRegistry.id))]}
 
 
 @router.get("/sources/{key}/mapping", summary="Full proposed/approved label mapping for a source")
-def get_mapping(key: str, _: User = Depends(get_current_user)):
+def get_mapping(key: str, _: User = Depends(get_viewer)):
     if not mapping_path(key).exists():
         raise HTTPException(404, "No label mapping file for this source")
     return load_mapping_file(key)

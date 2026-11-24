@@ -47,6 +47,8 @@ export function useLocale(): LocaleCtx {
 interface AuthCtx {
   user: User | null;
   loading: boolean;
+  /** Public mode: anonymous visitors may use the public pages without signing in. */
+  publicMode: boolean;
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
   hasRole: (...roles: User["role"][]) => boolean;
@@ -57,10 +59,17 @@ const AuthContext = createContext<AuthCtx | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [publicMode, setPublicMode] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   const refresh = useCallback(async () => {
+    try {
+      const cfg = await api<{ public_mode: boolean }>("/api/v1/auth/public-config").catch(() => ({ public_mode: false }));
+      setPublicMode(cfg.public_mode);
+    } catch {
+      setPublicMode(false);
+    }
     try {
       setUser(await api<User>("/api/v1/auth/me"));
     } catch {
@@ -75,18 +84,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   useEffect(() => {
-    if (!loading && !user && pathname !== "/login") router.replace("/login");
-  }, [loading, user, pathname, router]);
+    if (!loading && !user && !publicMode && pathname !== "/login") router.replace("/login");
+  }, [loading, user, publicMode, pathname, router]);
 
   const logout = useCallback(async () => {
     await api("/api/v1/auth/logout", { method: "POST" }).catch(() => undefined);
     setUser(null);
-    router.replace("/login");
-  }, [router]);
+    router.replace(publicMode ? "/" : "/login");
+  }, [router, publicMode]);
 
   const value = useMemo<AuthCtx>(
-    () => ({ user, loading, refresh, logout, hasRole: (...roles) => !!user && roles.includes(user.role) }),
-    [user, loading, refresh, logout],
+    () => ({ user, loading, publicMode, refresh, logout, hasRole: (...roles) => !!user && roles.includes(user.role) }),
+    [user, loading, publicMode, refresh, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
